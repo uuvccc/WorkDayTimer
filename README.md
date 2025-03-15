@@ -8,7 +8,7 @@ A desktop timer application for tracking work hours with reminder functionality.
 - Check-in and check-out reminders
 - Daily work log reminders
 - System tray integration
-- Customizable desktop pet display
+- Customizable desktop timer display
 - Flexible/Fixed time mode support
 
 ## Requirements
@@ -16,6 +16,51 @@ A desktop timer application for tracking work hours with reminder functionality.
 - Python 3.6 or higher
 - PyQt5 >= 5.15.0
 - Other dependencies listed in requirements.txt
+
+[中文文档](README_CN.md)
+
+## Python Environment Management
+
+To avoid Python environment conflicts, it's recommended to use a virtual environment. Here are two common methods:
+
+### Using venv (Python built-in)
+
+1. Create virtual environment:
+```bash
+python -m venv .venv
+```
+
+2. Activate virtual environment:
+- Windows:
+```bash
+.venv\Scripts\activate
+```
+- Linux/macOS:
+```bash
+source .venv/bin/activate
+```
+
+3. Deactivate virtual environment:
+```bash
+deactivate
+```
+
+### Using Conda
+
+1. Create new environment:
+```bash
+conda create -n workdaytimer python=3.8
+```
+
+2. Activate environment:
+```bash
+conda activate workdaytimer
+```
+
+3. Deactivate environment:
+```bash
+conda deactivate
+```
 
 ## Installation
 
@@ -50,7 +95,7 @@ You can also run the pre-built executable file directly:
 
 After starting the application:
 
-1. The timer will appear as a small desktop pet in the top-right corner of your screen
+1. The timer will appear as a small desktop timer in the top-right corner of your screen
 2. System tray icon provides quick access to open/exit the application
 3. Automatic reminders will notify you for:
    - Check-in time
@@ -61,7 +106,7 @@ After starting the application:
 ## Configuration
 
 - `isFLEXIBLE`: Set to `True` for flexible work hours, `False` for fixed 9:00 AM start time
-- Image paths can be customized in the code for different desktop pet appearances
+- Image paths can be customized in the code for different timer appearances
 - Window position and size can be adjusted in the initialization parameters
 
 ## Contributing
