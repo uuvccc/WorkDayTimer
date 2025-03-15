@@ -6,7 +6,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Path configurations
 START_TIME_FILE = os.path.join(BASE_DIR, "start_time.txt")
 LOG_FILE = os.path.join(BASE_DIR, "app.log")
-ICON_FILE = os.path.join(BASE_DIR, "icon.png")
+ICON_FILE = os.path.join(BASE_DIR, "images", "icon.png")
 
 # Image configurations
 DEFAULT_TIMER_IMAGE = os.path.join(BASE_DIR, "images", "timer1.png")

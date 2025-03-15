@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="128" cy="128" r="120" fill="#4A90E2" stroke="#2171C7" stroke-width="8"/>
+  <circle cx="128" cy="128" r="110" fill="#FFFFFF" opacity="0.1"/>
+  <circle cx="128" cy="128" r="8" fill="#FFFFFF"/>
+  <!-- Hour markers -->
+  <line x1="128" y1="30" x2="128" y2="45" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="128" y1="211" x2="128" y2="226" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="30" y1="128" x2="45" y2="128" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="211" y1="128" x2="226" y2="128" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <!-- Clock hands -->
+  <line x1="128" y1="128" x2="128" y2="60" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" transform="rotate(45 128 128)"/>
+  <line x1="128" y1="128" x2="180" y2="128" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" transform="rotate(15 128 128)"/>
+</svg>
