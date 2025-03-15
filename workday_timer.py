@@ -8,7 +8,9 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction
 
-from config import START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY
+from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
+    WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
+    DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT)
 
 # Configure logging
 logging.basicConfig(
@@ -44,8 +46,9 @@ def write_start_time(start_time):
         print(f"Error writing to config file: {e}")
 
 class WorkdayTimer(QWidget):
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
+        self.app = app
         self.init_ui()
 
         current_time = datetime.datetime.now()
@@ -114,7 +117,7 @@ class WorkdayTimer(QWidget):
     def init_ui(self):
         try:
             self.countdown_label = QLabel(self)
-            self.countdown_label.setPixmap(QPixmap(DEFAULT_AVATAR_IMAGE).scaled(60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.countdown_label.setPixmap(QPixmap(DEFAULT_TIMER_IMAGE).scaled(60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
         except FileNotFoundError:
             QMessageBox.critical(self, "Error", "Timer icon not found. Please check the path.")
             sys.exit(1)
@@ -199,6 +202,32 @@ class WorkdayTimer(QWidget):
         reminder_dialog.exec()
 
     def show_job_record_warning(self):
+        reminder_dialog = QMessageBox()
+        reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+        reminder_dialog.setWindowTitle("Work Record Reminder")
+        reminder_dialog.setText("Please remember to record your work progress!")
+        reminder_dialog.setIcon(QMessageBox.Information)
+        reminder_dialog.addButton(QMessageBox.Ok)
+        reminder_dialog.exec()
+
+    def moveAvatar(self):
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+    def exit_app(self):
+        self.app.quit()
+
+    def icon_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            self.moveAvatar()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = WorkdayTimer(app)
+    sys.exit(app.exec_())
+
+    def show_job_record_warning(self):
         job_record_reminder_dialog = QMessageBox()
         job_record_reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
         job_record_reminder_dialog.setWindowTitle("Microsoft Visual Studio")
@@ -236,7 +265,21 @@ class WorkdayTimer(QWidget):
             self.show()
 
     def exit_app(self):
+        self.close()
         QApplication.quit()
+
+    def toggle_flexible_time(self):
+        config.isFLEXIBLE = self.flexible_action.isChecked()
+        with open(config.__file__, 'r') as f:
+            lines = f.readlines()
+        
+        for i, line in enumerate(lines):
+            if line.startswith('isFLEXIBLE'):
+                lines[i] = f'isFLEXIBLE = {str(config.isFLEXIBLE)}\n'
+                break
+        
+        with open(config.__file__, 'w') as f:
+            f.writelines(lines)
 
     def closeEvent(self, event):
         event.ignore()
@@ -261,8 +304,9 @@ if __name__ == '__main__':
 
 
 class WorkdayTimer(QWidget):
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
+        self.app = app
         self.init_ui()
 
         current_time = datetime.datetime.now()
@@ -326,13 +370,13 @@ class WorkdayTimer(QWidget):
         self.tray_icon.show()
         self.tray_icon.activated.connect(self.icon_activated)
 
-        # 初始化自定义倒计时计时器
+        # Initialize custom countdown timer
         self.custom_timer = None
 
     def init_ui(self):
         try:
             self.countdown_label = QLabel(self)
-            self.countdown_label.setPixmap(QPixmap(DEFAULT_AVATAR_IMAGE).scaled(60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.countdown_label.setPixmap(QPixmap(DEFAULT_TIMER_IMAGE).scaled(60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
         except FileNotFoundError:
             QMessageBox.critical(self, "Error", "Timer icon not found. Please check the path.")
             sys.exit(1)
@@ -356,7 +400,7 @@ class WorkdayTimer(QWidget):
         if self.timer_type - seconds > 60:
             self.timer_type = seconds
             # Define image directory
-            image_directory = IMAGE_DIRECTORY
+            image_directory = AVATAR_DIRECTORY
 
             # List all image files in directory
             all_images = [f for f in os.listdir(image_directory) if f.endswith(('.png', '.jpg', '.jpeg'))]
@@ -412,7 +456,21 @@ class WorkdayTimer(QWidget):
             self.show()
 
     def exit_app(self):
+        self.close()
         QApplication.quit()
+
+    def toggle_flexible_time(self):
+        config.isFLEXIBLE = self.flexible_action.isChecked()
+        with open(config.__file__, 'r') as f:
+            lines = f.readlines()
+        
+        for i, line in enumerate(lines):
+            if line.startswith('isFLEXIBLE'):
+                lines[i] = f'isFLEXIBLE = {str(config.isFLEXIBLE)}\n'
+                break
+        
+        with open(config.__file__, 'w') as f:
+            f.writelines(lines)
 
     def closeEvent(self, event):
         event.ignore()
@@ -464,11 +522,11 @@ if __name__ == '__main__':
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("Cancel")
 
-        # 添加所有控件到布局
+        # Add all controls to layout
         button_layout.addWidget(decrease_btn)
         button_layout.addWidget(time_input)
         button_layout.addWidget(increase_btn)
-        
+
         buttons.addWidget(ok_button)
         buttons.addWidget(cancel_button)
 
@@ -478,7 +536,7 @@ if __name__ == '__main__':
 
         dialog.setLayout(layout)
 
-        # 连接按钮信号
+        # Connect button signals
         ok_button.clicked.connect(lambda: self.start_custom_timer(int(time_input.text()), dialog))
         cancel_button.clicked.connect(dialog.reject)
 
@@ -492,7 +550,7 @@ if __name__ == '__main__':
     def start_custom_timer(self, minutes, dialog):
         dialog.accept()
         
-        # 创建新的计时器
+        # Create new timer
         self.custom_timer = QTimer(self)
         self.custom_timer.timeout.connect(self.show_custom_timer_reminder)
         self.custom_timer.setSingleShot(True)
@@ -500,8 +558,8 @@ if __name__ == '__main__':
 
     def show_custom_timer_reminder(self):
         reminder = QMessageBox()
-        reminder.setWindowTitle("倒计时提醒")
-        reminder.setText("自定义倒计时结束！")
+        reminder.setWindowTitle("Countdown Reminder")
+        reminder.setText("Custom countdown finished!")
         reminder.setIcon(QMessageBox.Information)
         reminder.addButton(QMessageBox.Ok)
         reminder.exec_()

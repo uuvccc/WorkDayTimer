@@ -9,12 +9,12 @@ LOG_FILE = os.path.join(BASE_DIR, "app.log")
 ICON_FILE = os.path.join(BASE_DIR, "icon.png")
 
 # Image configurations
-DEFAULT_AVATAR_IMAGE = os.path.join(BASE_DIR, "images", "avatar1.png")
-AVATAR_DIRECTORY = os.path.join(BASE_DIR, "images", "avatars")
+DEFAULT_TIMER_IMAGE = os.path.join(BASE_DIR, "images", "timer1.png")
+IMAGE_DIRECTORY = os.path.join(BASE_DIR, "images", "timers")
 
 # Create directories if they don't exist
-os.makedirs(os.path.dirname(DEFAULT_AVATAR_IMAGE), exist_ok=True)
-os.makedirs(AVATAR_DIRECTORY, exist_ok=True)
+os.makedirs(os.path.dirname(DEFAULT_TIMER_IMAGE), exist_ok=True)
+os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
 # Window settings
 WINDOW_POSITION_X = 1650
@@ -33,4 +33,4 @@ JOB_DIALOG_SIZE_WIDTH = 900
 JOB_DIALOG_SIZE_HEIGHT = 700
 
 # Application settings
-isFLEXIBLE = True
+isFLEXIBLE = False
