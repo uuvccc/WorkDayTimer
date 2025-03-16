@@ -104,26 +104,6 @@ class WorkdayTimer(QWidget):
         open_action.triggered.connect(self.moveAvatar)
         self.menu.addAction(open_action)
 
-        # Add flexible time mode toggle
-        self.flexible_action = QAction("Flexible Time Mode", self, checkable=True)
-        self.flexible_action.setChecked(isFLEXIBLE)
-        self.flexible_action.triggered.connect(self.toggle_flexible_time)
-        self.menu.addAction(self.flexible_action)
-
-        # Add custom timer controls
-        self.custom_timer_menu = QMenu("Custom Timer", self)
-        self.start_timer_action = QAction("Start Timer", self)
-        self.start_timer_action.triggered.connect(self.start_custom_timer)
-        self.pause_timer_action = QAction("Pause Timer", self)
-        self.pause_timer_action.triggered.connect(self.pause_custom_timer)
-        self.reset_timer_action = QAction("Reset Timer", self)
-        self.reset_timer_action.triggered.connect(self.reset_custom_timer)
-
-        self.custom_timer_menu.addAction(self.start_timer_action)
-        self.custom_timer_menu.addAction(self.pause_timer_action)
-        self.custom_timer_menu.addAction(self.reset_timer_action)
-        self.menu.addMenu(self.custom_timer_menu)
-
         # Create action to exit program
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.exit_app)
@@ -135,11 +115,6 @@ class WorkdayTimer(QWidget):
         # Connect tray icon click event
         self.tray_icon.activated.connect(self.icon_activated)
 
-        # Initialize custom timer variables
-        self.custom_timer = QTimer(self)
-        self.custom_timer.timeout.connect(self.update_custom_timer)
-        self.custom_timer_remaining = 0
-        self.custom_timer_running = False
 
     def init_ui(self):
         try:
@@ -528,35 +503,6 @@ class WorkdayTimer(QWidget):
         
         with open(config.__file__, 'w') as f:
             f.writelines(lines)
-
-    def start_custom_timer(self):
-        if not self.custom_timer_running:
-            duration, ok = QInputDialog.getInt(self, 'Custom Timer', 'Enter duration (minutes):', 30, 1, 480)
-            if ok:
-                self.custom_timer_remaining = duration * 60
-                self.custom_timer.start(1000)
-                self.custom_timer_running = True
-
-    def pause_custom_timer(self):
-        if self.custom_timer_running:
-            self.custom_timer.stop()
-            self.custom_timer_running = False
-        else:
-            self.custom_timer.start(1000)
-            self.custom_timer_running = True
-
-    def reset_custom_timer(self):
-        self.custom_timer.stop()
-        self.custom_timer_running = False
-        self.custom_timer_remaining = 0
-
-    def update_custom_timer(self):
-        if self.custom_timer_remaining > 0:
-            self.custom_timer_remaining -= 1
-            if self.custom_timer_remaining == 0:
-                self.custom_timer.stop()
-                self.custom_timer_running = False
-                QMessageBox.information(self, 'Custom Timer', 'Timer finished!')
 
 
     def closeEvent(self, event):
