@@ -5,8 +5,8 @@ import random
 import sys
 
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap, QFont, QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction, QLineEdit
 
 from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
     WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
@@ -111,6 +111,11 @@ class WorkdayTimer(QWidget):
         self.flexible_action.setChecked(isFLEXIBLE)
         self.flexible_action.triggered.connect(self.toggle_flexible_mode)
         self.menu.addAction(self.flexible_action)
+
+        # Create action for custom timer
+        custom_timer_action = QAction("Custom Timer", self)
+        custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
+        self.menu.addAction(custom_timer_action)
 
         # Create action to exit program
         exit_action = QAction("Exit", self)
@@ -244,6 +249,157 @@ class WorkdayTimer(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save flexible mode: {e}")
             self.flexible_action.setChecked(not is_flexible)
+
+    def show_custom_timer_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Custom Timer")
+        dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
+        layout = QVBoxLayout()
+
+        # Create input field
+        input_label = QLabel("Enter minutes:")
+        input_field = QLineEdit()
+        input_field.setAlignment(Qt.AlignCenter)
+        input_field.setFont(QFont("Arial", 20))
+        input_field.setText("0")
+        input_field.setValidator(QIntValidator(0, 999999))
+        layout.addWidget(input_label)
+        layout.addWidget(input_field)
+
+        # Create quick select buttons layout
+        quick_select_layout = QVBoxLayout()
+
+        # First row - 1 to 5 minutes
+        row1_layout = QHBoxLayout()
+        for i in range(1, 6):
+            btn = QPushButton(str(i))
+            btn.clicked.connect(lambda checked, num=i: self.add_minutes(input_field, num))
+            row1_layout.addWidget(btn)
+        quick_select_layout.addLayout(row1_layout)
+
+        # Second row - 6 to 10 minutes
+        row2_layout = QHBoxLayout()
+        for i in range(6, 11):
+            btn = QPushButton(str(i))
+            btn.clicked.connect(lambda checked, num=i: self.add_minutes(input_field, num))
+            row2_layout.addWidget(btn)
+        quick_select_layout.addLayout(row2_layout)
+
+        # Third row - 15, 20, 30 minutes
+        row3_layout = QHBoxLayout()
+        for minutes in [15, 20, 30]:
+            btn = QPushButton(f"{minutes}")
+            btn.clicked.connect(lambda checked, num=minutes: self.add_minutes(input_field, num))
+            row3_layout.addWidget(btn)
+        quick_select_layout.addLayout(row3_layout)
+
+        # Fourth row - 40, 60, 90 minutes
+        row4_layout = QHBoxLayout()
+        for minutes in [40, 60, 90]:
+            btn = QPushButton(f"{minutes}")
+            btn.clicked.connect(lambda checked, num=minutes: self.add_minutes(input_field, num))
+            row4_layout.addWidget(btn)
+        quick_select_layout.addLayout(row4_layout)
+
+        # Fifth row - 120, 180, 240 minutes
+        row5_layout = QHBoxLayout()
+        for minutes in [120, 180, 240]:
+            btn = QPushButton(f"{minutes}")
+            btn.clicked.connect(lambda checked, num=minutes: self.add_minutes(input_field, num))
+            row5_layout.addWidget(btn)
+        quick_select_layout.addLayout(row5_layout)
+
+        # Add clear button
+        clear_button = QPushButton("Clear")
+        clear_button.clicked.connect(lambda: input_field.setText("0"))
+        quick_select_layout.addWidget(clear_button)
+
+        layout.addLayout(quick_select_layout)
+
+        # Create OK and Cancel buttons
+        button_box = QHBoxLayout()
+        ok_button = QPushButton("OK")
+        cancel_button = QPushButton("Cancel")
+
+        def start_custom_timer():
+            try:
+                minutes = int(input_field.text())
+                if minutes > 0:
+                    self.start_custom_countdown(minutes)
+                    dialog.accept()
+                else:
+                    QMessageBox.warning(dialog, "Invalid Input", "Please enter a positive number.")
+            except ValueError:
+                QMessageBox.warning(dialog, "Invalid Input", "Please enter a valid number.")
+
+        ok_button.clicked.connect(start_custom_timer)
+        cancel_button.clicked.connect(dialog.reject)
+
+        button_box.addWidget(ok_button)
+        button_box.addWidget(cancel_button)
+        layout.addLayout(button_box)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def add_minutes(self, input_field, minutes):
+        try:
+            current = int(input_field.text())
+            input_field.setText(str(current + minutes))
+        except ValueError:
+            input_field.setText(str(minutes))
+
+    def start_custom_countdown(self, minutes):
+        if hasattr(self, 'custom_timer'):
+            self.custom_timer.stop()
+
+        self.custom_timer = QTimer(self)
+        self.custom_timer.timeout.connect(lambda: self.show_custom_timer_reminder())
+        self.custom_timer.setSingleShot(True)
+        self.custom_timer.start(minutes * 60 * 1000)
+
+    def show_custom_timer_reminder(self):
+        reminder_dialog = QMessageBox()
+        reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+        reminder_dialog.setWindowTitle("Custom Timer")
+        reminder_dialog.setText("Custom timer countdown finished!")
+        reminder_dialog.setIcon(QMessageBox.Information)
+        reminder_dialog.addButton(QMessageBox.Ok)
+        reminder_dialog.exec_()
+
+    def shutdown_computer(self):
+        reminder_dialog = QMessageBox()
+        reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+        reminder_dialog.setWindowTitle("Microsoft Visual Studio")
+        reminder_message = """Reminder:
+        - 1. Clock out
+        - 2. Turn off AC, water dispenser, windows, computer
+        - 3. Write work log
+        -- """
+        if not isFLEXIBLE:
+            reminder_message = """ Need to shutdown """
+
+        reminder_dialog.setText(reminder_message)
+        reminder_dialog.setIcon(QMessageBox.Information)
+        
+        # Add Shutdown Button
+        shutdown_button = QPushButton("Shutdown")
+        shutdown_button.clicked.connect(self.shutdown_computer)
+        reminder_dialog.addButton(shutdown_button, QMessageBox.ActionRole)
+        reminder_dialog.addButton(QMessageBox.Ignore)
+
+        reminder_dialog.setMinimumSize(400, 200)
+        desktop = QApplication.desktop()
+        x = (desktop.width() - reminder_dialog.width()) // 2
+        y = (desktop.height() - reminder_dialog.height()) // 2
+        reminder_dialog.setGeometry(x, y, reminder_dialog.width(), reminder_dialog.height())
+        reminder_dialog.setGeometry(DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT)
+
+        font = QFont()
+        font.setPointSize(12)
+        reminder_dialog.setFont(font)
+        reminder_dialog.exec()
+
 
 if __name__ == '__main__':
     try:
