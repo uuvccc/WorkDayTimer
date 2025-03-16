@@ -39,7 +39,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name WorkDayTimer main.py
+        pyinstaller --onefile --windowed --name WorkDayTimer workday_timer.py
 
     - name: Upload Release Asset
       env:
