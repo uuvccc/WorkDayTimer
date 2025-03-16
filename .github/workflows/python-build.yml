@@ -1,8 +1,6 @@
 name: Python Build and Release
 
 on:
-  push:
-    branches: [ main ]
   release:
     types: [created]
 
