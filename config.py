@@ -33,4 +33,14 @@ JOB_DIALOG_SIZE_WIDTH = 900
 JOB_DIALOG_SIZE_HEIGHT = 700
 
 # Application settings
-isFLEXIBLE = False
+FLEXIBLE_MODE_FILE = os.path.join(BASE_DIR, "flexible_mode.txt")
+
+# Read flexible mode from file
+def read_flexible_mode():
+    try:
+        with open(FLEXIBLE_MODE_FILE, "r") as f:
+            return f.read().strip().lower() == "true"
+    except FileNotFoundError:
+        return False
+
+isFLEXIBLE = read_flexible_mode()

@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushBut
 
 from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
     WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
-    DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT)
+    DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT,
+    FLEXIBLE_MODE_FILE)
 
 # Configure logging
 logging.basicConfig(
@@ -103,6 +104,13 @@ class WorkdayTimer(QWidget):
         open_action = QAction("Open", self)
         open_action.triggered.connect(self.moveAvatar)
         self.menu.addAction(open_action)
+
+        # Create action to toggle flexible mode
+        self.flexible_action = QAction(f"Flexible Mode: {'On' if isFLEXIBLE else 'Off'}", self)
+        self.flexible_action.setCheckable(True)
+        self.flexible_action.setChecked(isFLEXIBLE)
+        self.flexible_action.triggered.connect(self.toggle_flexible_mode)
+        self.menu.addAction(self.flexible_action)
 
         # Create action to exit program
         exit_action = QAction("Exit", self)
@@ -223,6 +231,19 @@ class WorkdayTimer(QWidget):
     def icon_activated(self, reason):
         if reason == QSystemTrayIcon.Trigger:
             self.moveAvatar()
+
+    def toggle_flexible_mode(self):
+        """Toggle flexible mode and save the state to file"""
+        is_flexible = self.flexible_action.isChecked()
+        try:
+            with open(FLEXIBLE_MODE_FILE, "w") as f:
+                f.write(str(is_flexible).lower())
+            global isFLEXIBLE
+            isFLEXIBLE = is_flexible
+            QMessageBox.information(self, "Mode Changed", "Flexible mode has been " + ("enabled" if is_flexible else "disabled") + ".\nPlease restart the application for the changes to take effect.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save flexible mode: {e}")
+            self.flexible_action.setChecked(not is_flexible)
 
 if __name__ == '__main__':
     try:
