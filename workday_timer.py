@@ -183,6 +183,18 @@ class WorkdayTimer(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.show()
 
+    def show_checkin_reminder(self):
+        job_record_reminder_dialog = QMessageBox()
+        job_record_reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
+        job_record_reminder_dialog.setWindowTitle("Microsoft Visual Studio")
+        reminder_message = """checkin"""
+
+        job_record_reminder_dialog.setText(reminder_message)
+        job_record_reminder_dialog.setIcon(QMessageBox.Critical)
+        job_record_reminder_dialog.addButton(QMessageBox.Close) 
+        job_record_reminder_dialog.setGeometry(700, 500, 900, 700)
+        job_record_reminder_dialog.exec_()
+
     def show_reminder(self):
         reminder_dialog = QMessageBox()
         reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
@@ -368,37 +380,11 @@ class WorkdayTimer(QWidget):
         reminder_dialog.exec_()
 
     def shutdown_computer(self):
-        reminder_dialog = QMessageBox()
-        reminder_dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-        reminder_dialog.setWindowTitle("Microsoft Visual Studio")
-        reminder_message = """Reminder:
-        - 1. Clock out
-        - 2. Turn off AC, water dispenser, windows, computer
-        - 3. Write work log
-        -- """
-        if not isFLEXIBLE:
-            reminder_message = """ Need to shutdown """
-
-        reminder_dialog.setText(reminder_message)
-        reminder_dialog.setIcon(QMessageBox.Information)
-        
-        # Add Shutdown Button
-        shutdown_button = QPushButton("Shutdown")
-        shutdown_button.clicked.connect(self.shutdown_computer)
-        reminder_dialog.addButton(shutdown_button, QMessageBox.ActionRole)
-        reminder_dialog.addButton(QMessageBox.Ignore)
-
-        reminder_dialog.setMinimumSize(400, 200)
-        desktop = QApplication.desktop()
-        x = (desktop.width() - reminder_dialog.width()) // 2
-        y = (desktop.height() - reminder_dialog.height()) // 2
-        reminder_dialog.setGeometry(x, y, reminder_dialog.width(), reminder_dialog.height())
-        reminder_dialog.setGeometry(DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT)
-
-        font = QFont()
-        font.setPointSize(12)
-        reminder_dialog.setFont(font)
-        reminder_dialog.exec()
+        # **WARNING:  Use with EXTREME caution!**  Add robust confirmation dialog before implementing.
+        try:
+            os.system("shutdown /s /t 1") #Windows shutdown command, adjust for other OS.
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Shutdown failed: {e}")
 
 
 if __name__ == '__main__':
