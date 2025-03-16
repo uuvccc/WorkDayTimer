@@ -1,7 +1,16 @@
 import os
+import sys
 
-# Get the directory containing this script
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Get the directory containing this script, compatible with both script and exe
+def get_base_dir():
+    if getattr(sys, 'frozen', False):
+        # Running in a PyInstaller bundle
+        return os.path.dirname(sys.executable)
+    else:
+        # Running in a normal Python environment
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = get_base_dir()
 
 # Path configurations
 START_TIME_FILE = os.path.join(BASE_DIR, "start_time.txt")
