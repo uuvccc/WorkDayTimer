@@ -41,6 +41,12 @@ jobs:
       run: |
         pyinstaller --onefile --windowed --name WorkDayTimer workday_timer.py
 
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: WorkDayTimer
+        path: ./dist/WorkDayTimer.exe
+
     - name: Upload Release Asset
       if: github.event_name == 'release'
       env:
