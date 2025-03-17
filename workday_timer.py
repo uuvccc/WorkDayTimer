@@ -245,6 +245,11 @@ class WorkdayTimer(QWidget):
     def exit_app(self):
         self.app.quit()
 
+    def closeEvent(self, event):
+        event.ignore()
+
+
+
     def icon_activated(self, reason):
         if reason == QSystemTrayIcon.Trigger:
             self.moveAvatar()
