@@ -161,6 +161,11 @@ class WorkdayTimer(QWidget):
         # Display image
         seconds = self.reminder_timer.remainingTime() / 1000.0
 
+        # Add display for custom timer remaining time
+        custom_timer_seconds = 0
+        if hasattr(self, 'custom_timer') and self.custom_timer and self.custom_timer.isActive():
+            custom_timer_seconds = self.custom_timer.remainingTime() / 1000.0
+
         if self.timer_type - seconds > 60:
             self.timer_type = seconds
             # Define image directory
@@ -175,8 +180,12 @@ class WorkdayTimer(QWidget):
                 image_path = os.path.join(image_directory, random_image)
                 self.countdown_label.setPixmap(QPixmap(image_path).scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
-        # Countdown display
-        self.time_label.setText('           : {:.0f} ✔ {}'.format(seconds, self.timer_expiry.minute))
+        # Update display text with both timer information
+        display_text = '           : {:.0f} ✔ {}\n'.format(seconds, self.timer_expiry.minute)
+        if custom_timer_seconds > 0:
+            display_text += '           : {:.0f}s'.format(custom_timer_seconds)
+        
+        self.time_label.setText(display_text)
         self.time_label.adjustSize()
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
