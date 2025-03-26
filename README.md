@@ -1,5 +1,7 @@
 # WorkdayTimer
 
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/wasd845/WorkDayTimer/pulls) [![GitHub Actions CI](https://github.com/wasd845/WorkDayTimer/workflows/Python%20application/badge.svg)](https://github.com/wasd845/WorkDayTimer/actions) [![GitHub release](https://img.shields.io/github/v/release/wasd845/WorkDayTimer)](https://github.com/wasd845/WorkDayTimer/releases) [![GitHub all releases](https://img.shields.io/github/downloads/wasd845/WorkDayTimer/total)](https://github.com/wasd845/WorkDayTimer/releases) [![GitHub issues](https://img.shields.io/github/issues/wasd845/WorkDayTimer)](https://github.com/wasd845/WorkDayTimer/issues)
+
 A desktop timer application for tracking work hours with reminder functionality.
 
 ## Features
