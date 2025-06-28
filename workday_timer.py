@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import sys
+import requests  # Add import for HTTP requests
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
@@ -116,6 +117,11 @@ class WorkdayTimer(QWidget):
         custom_timer_action = QAction("Custom Timer", self)
         custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
         self.menu.addAction(custom_timer_action)
+
+        # Add an update action to the tray menu
+        update_action = QAction("Update Application", self)
+        update_action.triggered.connect(self.update_application)
+        self.menu.addAction(update_action)
 
         # Create action to exit program
         exit_action = QAction("Exit", self)
@@ -399,6 +405,23 @@ class WorkdayTimer(QWidget):
             os.system("shutdown /s /t 1") #Windows shutdown command, adjust for other OS.
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Shutdown failed: {e}")
+
+    def update_application(self):
+        """Download the latest executable from GitHub and replace the current one."""
+        try:
+            github_url = "https://github.com/uuvccc/WorkDayTimer/releases/latest/download/WorkDayTimer.exe"
+            local_exe_path = sys.argv[0]  # Path to the current executable
+
+            response = requests.get(github_url, stream=True)
+            if response.status_code == 200:
+                with open(local_exe_path, "wb") as exe_file:
+                    for chunk in response.iter_content(chunk_size=1024):
+                        exe_file.write(chunk)
+                QMessageBox.information(self, "Update Successful", "The application has been updated successfully. Please restart.")
+            else:
+                QMessageBox.critical(self, "Update Failed", f"Failed to download the update. HTTP Status Code: {response.status_code}")
+        except Exception as e:
+            QMessageBox.critical(self, "Update Error", f"An error occurred during the update: {e}")
 
 
 if __name__ == '__main__':
