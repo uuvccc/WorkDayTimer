@@ -4,6 +4,8 @@ import os
 import random
 import sys
 import requests  # Add import for HTTP requests
+import win32gui
+import win32con
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
@@ -138,6 +140,8 @@ class WorkdayTimer(QWidget):
     def init_ui(self):
         try:
             self.countdown_label = QLabel(self)
+            # Enable key press events
+            self.setFocusPolicy(Qt.StrongFocus)
             self.countdown_label.setPixmap(QPixmap(DEFAULT_TIMER_IMAGE).scaled(60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
         except FileNotFoundError:
             QMessageBox.critical(self, "Error", "Timer icon not found. Please check the path.")
@@ -162,6 +166,14 @@ class WorkdayTimer(QWidget):
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.LeftButton:
             self.move(event.globalPos() - self.offset)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            def window_enum_callback(hwnd, extra):
+                if "QQ.exe" in win32gui.GetWindowText(hwnd):
+                    win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+            
+            win32gui.EnumWindows(window_enum_callback, None)
 
     def update_timer_display(self):
         # Display image
