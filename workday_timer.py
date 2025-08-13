@@ -170,7 +170,7 @@ class WorkdayTimer(QWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
             def window_enum_callback(hwnd, extra):
-                if "QQ.exe" in win32gui.GetWindowText(hwnd):
+                if "QQ..exe" in win32gui.GetWindowText(hwnd):
                     win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
             
             win32gui.EnumWindows(window_enum_callback, None)
