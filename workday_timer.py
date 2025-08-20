@@ -6,6 +6,8 @@ import sys
 import requests  # Add import for HTTP requests
 import win32gui
 import win32con
+import multiprocessing
+import threading
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
@@ -136,6 +138,8 @@ class WorkdayTimer(QWidget):
         # Connect tray icon click event
         self.tray_icon.activated.connect(self.icon_activated)
 
+        # Set up global keyboard hook for Enter key
+        self.setup_keyboard_hook()
 
     def init_ui(self):
         try:
@@ -169,11 +173,7 @@ class WorkdayTimer(QWidget):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-            def window_enum_callback(hwnd, extra):
-                if "QQ..exe" in win32gui.GetWindowText(hwnd):
-                    win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
-            
-            win32gui.EnumWindows(window_enum_callback, None)
+            self.toggle_qq_window()
 
     def update_timer_display(self):
         # Display image
@@ -270,6 +270,9 @@ class WorkdayTimer(QWidget):
         self.activateWindow()
 
     def exit_app(self):
+        # Stop keyboard listener before exiting
+        import keyboard
+        keyboard.unhook_all()
         self.app.quit()
 
     def closeEvent(self, event):
@@ -410,6 +413,52 @@ class WorkdayTimer(QWidget):
         reminder_dialog.setIcon(QMessageBox.Information)
         reminder_dialog.addButton(QMessageBox.Ok)
         reminder_dialog.exec_()
+
+    def setup_keyboard_hook(self):
+        """Set up a global keyboard hook to listen for Enter key press using multiprocessing"""
+        import keyboard
+        
+        def on_enter_key(event):
+            if event.event_type == keyboard.KEY_DOWN and event.name == 'enter':
+                self.toggle_qq_window()
+        
+        # Register the hook in a separate thread
+        self.keyboard_listener_thread = threading.Thread(target=self._start_keyboard_listener, daemon=True)
+        self.keyboard_listener_thread.start()
+
+    def _start_keyboard_listener(self):
+        """Start the keyboard listener in a separate thread"""
+        import keyboard
+        
+        def on_enter_key(event):
+            if event.event_type == keyboard.KEY_DOWN and event.name == 'enter':
+                # Use wx.CallAfter equivalent for Qt
+                self.toggle_qq_window()
+        
+        # Start the keyboard listener
+        keyboard.hook(on_enter_key)
+        
+        # Keep the thread alive
+        try:
+            keyboard.wait()
+        except KeyboardInterrupt:
+            pass
+
+    def toggle_qq_window(self):
+        """Toggle visibility of windows with 'QQ..exe' in the title"""
+        def window_enum_callback(hwnd, extra):
+            if "QQ..exe" in win32gui.GetWindowText(hwnd):
+                # Check if window is visible
+                if win32gui.IsWindowVisible(hwnd):
+                    win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+                else:
+                    win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+        
+        win32gui.EnumWindows(window_enum_callback, None)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            self.toggle_qq_window()
 
     def shutdown_computer(self):
         # **WARNING:  Use with EXTREME caution!**  Add robust confirmation dialog before implementing.
