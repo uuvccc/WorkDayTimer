@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 import logging
 import os
 import random
@@ -473,12 +473,31 @@ class WorkdayTimer(QWidget):
             github_url = "https://github.com/uuvccc/WorkDayTimer/releases/latest/download/WorkDayTimer.exe"
             local_exe_path = sys.argv[0]  # Path to the current executable
 
+            # Create a temporary file for the new version
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            temp_exe_path = os.path.join(temp_dir, "WorkDayTimer_new.exe")
+
             response = requests.get(github_url, stream=True)
             if response.status_code == 200:
-                with open(local_exe_path, "wb") as exe_file:
+                with open(temp_exe_path, "wb") as exe_file:
                     for chunk in response.iter_content(chunk_size=1024):
                         exe_file.write(chunk)
-                QMessageBox.information(self, "Update Successful", "The application has been updated successfully. Please restart.")
+                
+                # Create an updater script that will run after this application closes
+                updater_script = os.path.join(temp_dir, "updater.bat")
+                with open(updater_script, "w") as f:
+                    f.write(f"""@echo off
+timeout /t 2 /nobreak >nul
+del "{local_exe_path}"
+move "{temp_exe_path}" "{local_exe_path}"
+start "" "{local_exe_path}"
+del "%~f0"
+""")
+                
+                # Launch the updater script and exit the current application
+                os.startfile(updater_script)
+                self.exit_app()
             else:
                 QMessageBox.critical(self, "Update Failed", f"Failed to download the update. HTTP Status Code: {response.status_code}")
         except Exception as e:
