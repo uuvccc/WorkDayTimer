@@ -550,13 +550,18 @@ class WorkdayTimer(QWidget):
                     return
                 
                 # Create an updater script that will run after this application closes
-                updater_script = os.path.join(temp_dir, "updater.bat")
+                # Place the updater script in the same directory as the executable
+                updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
                 with open(updater_script, "w") as f:
                     f.write(f"""@echo off
 timeout /t 2 /nobreak >nul
 taskkill /f /im WorkDayTimer.exe 2>nul
 del "{local_exe_path}"
 move "{temp_exe_path}" "{local_exe_path}"
+
+:: Set the PATH to include system and user DLL directories
+set "PATH=%PATH%;C:\\Windows\\System32;C:\\Windows\\SysWOW64"
+
 cd /d "{os.path.dirname(local_exe_path)}"
 start "" "{os.path.basename(local_exe_path)}"
 del "%~f0"
@@ -564,7 +569,10 @@ del "%~f0"
                 
                 # Launch the updater script and exit the current application
                 import subprocess
-                subprocess.Popen([updater_script], shell=True)
+                # Set environment variables to help find DLLs
+                env = os.environ.copy()
+                env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
+                subprocess.Popen(updater_script, shell=True, env=env)
                 self.exit_app()
             else:
                 progress_dialog.close()
