@@ -11,7 +11,7 @@ import threading
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction, QLineEdit
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction, QLineEdit, QProgressBar
 
 from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
     WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
@@ -471,36 +471,107 @@ class WorkdayTimer(QWidget):
         """Download the latest executable from GitHub and replace the current one."""
         try:
             github_url = "https://github.com/uuvccc/WorkDayTimer/releases/latest/download/WorkDayTimer.exe"
-            local_exe_path = sys.argv[0]  # Path to the current executable
+            
+            # Determine if running as executable or script
+            local_exe_path = sys.argv[0]
+            is_running_as_exe = local_exe_path.endswith('.exe')
+            
+            if not is_running_as_exe:
+                # When running as script, download to current directory
+                local_exe_path = os.path.join(os.getcwd(), "WorkDayTimer.exe")
+                reply = QMessageBox.question(self, "Update Confirmation", 
+                                           "Application is running as a Python script.\n"
+                                           "The executable will be downloaded to the current directory.\n"
+                                           f"Download location: {local_exe_path}\n"
+                                           "Do you want to continue?")
+                if reply == QMessageBox.No:
+                    return
 
             # Create a temporary file for the new version
             import tempfile
             temp_dir = tempfile.gettempdir()
             temp_exe_path = os.path.join(temp_dir, "WorkDayTimer_new.exe")
 
+            # Create progress dialog
+            progress_dialog = QDialog(None)  # Changed from QDialog(self) to QDialog(None)
+            progress_dialog.setWindowTitle("Downloading Update")
+            progress_dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
+            progress_dialog.setModal(True)
+            progress_dialog.resize(300, 100)
+            
+            layout = QVBoxLayout()
+            label = QLabel("Downloading update...")
+            layout.addWidget(label)
+            
+            progress_bar = QProgressBar()
+            progress_bar.setRange(0, 100)
+            layout.addWidget(progress_bar)
+            
+            progress_dialog.setLayout(layout)
+            progress_dialog.show()
+            QApplication.processEvents()  # Ensure dialog is displayed
+
             response = requests.get(github_url, stream=True)
             if response.status_code == 200:
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded_size = 0
+                
                 with open(temp_exe_path, "wb") as exe_file:
+                    if total_size == 0:
+                        # If content-length header is missing, set a default size for progress bar
+                        progress_bar.setRange(0, 0)  # Indeterminate progress bar
+                        label.setText("Downloading update... (size unknown)")
+                        QApplication.processEvents()
+                    
                     for chunk in response.iter_content(chunk_size=1024):
-                        exe_file.write(chunk)
+                        if chunk:
+                            exe_file.write(chunk)
+                            downloaded_size += len(chunk)
+                            if total_size > 0:
+                                progress = int((downloaded_size / total_size) * 100)
+                                progress_bar.setValue(progress)
+                                label.setText(f"Downloading update... {progress}%")
+                                QApplication.processEvents()  # Update UI
+                            else:
+                                # Update UI even when we don't know the total size
+                                label.setText(f"Downloading update... {downloaded_size} bytes")
+                                QApplication.processEvents()
+
+                progress_dialog.close()
+                
+                if not is_running_as_exe:
+                    # If running as script, just move the downloaded file to current directory
+                    import shutil
+                    shutil.move(temp_exe_path, local_exe_path)
+                    QMessageBox.information(self, "Update Complete", 
+                                          f"Executable downloaded successfully!\n"
+                                          f"Location: {local_exe_path}\n"
+                                          f"Run this file to start the application as an executable.")
+                    return
                 
                 # Create an updater script that will run after this application closes
                 updater_script = os.path.join(temp_dir, "updater.bat")
                 with open(updater_script, "w") as f:
                     f.write(f"""@echo off
 timeout /t 2 /nobreak >nul
+taskkill /f /im WorkDayTimer.exe 2>nul
 del "{local_exe_path}"
 move "{temp_exe_path}" "{local_exe_path}"
-start "" "{local_exe_path}"
+cd /d "{os.path.dirname(local_exe_path)}"
+start "" "{os.path.basename(local_exe_path)}"
 del "%~f0"
 """)
                 
                 # Launch the updater script and exit the current application
-                os.startfile(updater_script)
+                import subprocess
+                subprocess.Popen([updater_script], shell=True)
                 self.exit_app()
             else:
+                progress_dialog.close()
                 QMessageBox.critical(self, "Update Failed", f"Failed to download the update. HTTP Status Code: {response.status_code}")
         except Exception as e:
+            if 'progress_dialog' in locals() and progress_dialog:
+                progress_dialog.close()
             QMessageBox.critical(self, "Update Error", f"An error occurred during the update: {e}")
 
 
