@@ -11,7 +11,7 @@ import threading
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction, QLineEdit, QProgressBar
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction, QLineEdit, QProgressBar, QStyle
 
 from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
     WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
@@ -101,8 +101,15 @@ class WorkdayTimer(QWidget):
             self.show_checkin_reminder()
 
         # Create system tray icon
-        self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(QIcon(ICON_FILE))  # Replace with your own icon file
+        self.tray_icon = QSystemTrayIcon()
+        # Ensure the icon file exists
+        if os.path.exists(ICON_FILE):
+            self.tray_icon.setIcon(QIcon(ICON_FILE))
+        else:
+            # Use a default icon if the custom one doesn't exist
+            self.tray_icon.setIcon(QApplication.style().standardIcon(QStyle.SP_MessageBoxInformation))
+            logging.warning(f"Icon file not found: {ICON_FILE}")
+        
         # Create menu for open and exit
         self.menu = QMenu()
         # Create action to open window
@@ -137,6 +144,12 @@ class WorkdayTimer(QWidget):
         self.tray_icon.show()
         # Connect tray icon click event
         self.tray_icon.activated.connect(self.icon_activated)
+        
+        # Verify tray icon is visible
+        if not self.tray_icon.isVisible():
+            logging.warning("Tray icon is not visible")
+            # Try to show it again
+            self.tray_icon.show()
 
         # Set up global keyboard hook for Enter key
         self.setup_keyboard_hook()
@@ -147,6 +160,9 @@ class WorkdayTimer(QWidget):
             # Enable key press events
             self.setFocusPolicy(Qt.StrongFocus)
             self.countdown_label.setPixmap(QPixmap(DEFAULT_TIMER_IMAGE).scaled(60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            # Enable context menu for the label
+            self.countdown_label.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.countdown_label.customContextMenuRequested.connect(self.show_context_menu)
         except FileNotFoundError:
             QMessageBox.critical(self, "Error", "Timer icon not found. Please check the path.")
             sys.exit(1)
@@ -460,6 +476,10 @@ class WorkdayTimer(QWidget):
         if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
             self.toggle_qq_window()
 
+    def show_context_menu(self, position):
+        # Show the same menu as the tray icon
+        self.menu.exec_(self.countdown_label.mapToGlobal(position))
+
     def shutdown_computer(self):
         # **WARNING:  Use with EXTREME caution!**  Add robust confirmation dialog before implementing.
         try:
@@ -593,11 +613,20 @@ if __name__ == '__main__':
         print(error_message)
         logging.error(error_message)  # Write error message to log
         
-        self.tray_icon.setContextMenu(self.menu)
-        self.tray_icon.show()
-        self.tray_icon.activated.connect(self.icon_activated)
-
-        # Initialize custom countdown timer
-        self.custom_timer = None
+        # Create a simple tray icon for error reporting
+        try:
+            app = QApplication(sys.argv)
+            tray_icon = QSystemTrayIcon()
+            tray_icon.setIcon(QIcon(ICON_FILE))
+            menu = QMenu()
+            exit_action = QAction("Exit", None)
+            exit_action.triggered.connect(app.quit)
+            menu.addAction(exit_action)
+            tray_icon.setContextMenu(menu)
+            tray_icon.show()
+            tray_icon.showMessage("WorkDayTimer Error", f"An error occurred: {e}", QSystemTrayIcon.Critical, 5000)
+            sys.exit(app.exec_())
+        except:
+            pass
 
 
