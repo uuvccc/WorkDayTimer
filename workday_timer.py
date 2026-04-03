@@ -9,7 +9,7 @@ import win32con
 import multiprocessing
 import threading
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QEvent
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QIntValidator
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QSystemTrayIcon, QMenu, QAction, QLineEdit, QProgressBar, QStyle
 
@@ -100,6 +100,11 @@ class WorkdayTimer(QWidget):
         if is_first_start:
             self.show_checkin_reminder()
 
+        # Check for updates in a separate thread
+        import threading
+        update_thread = threading.Thread(target=self.check_for_updates, daemon=True)
+        update_thread.start()
+
         # Create system tray icon
         self.tray_icon = QSystemTrayIcon()
         # Ensure the icon file exists
@@ -133,6 +138,13 @@ class WorkdayTimer(QWidget):
         update_action = QAction("Update Application", self)
         update_action.triggered.connect(self.update_application)
         self.menu.addAction(update_action)
+
+        # Add a startup action to the tray menu
+        self.startup_action = QAction(f"Run on Startup: {'On' if self.is_run_on_startup() else 'Off'}", self)
+        self.startup_action.setCheckable(True)
+        self.startup_action.setChecked(self.is_run_on_startup())
+        self.startup_action.triggered.connect(self.toggle_run_on_startup)
+        self.menu.addAction(self.startup_action)
 
         # Create action to exit program
         exit_action = QAction("Exit", self)
@@ -313,6 +325,47 @@ class WorkdayTimer(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to save flexible mode: {e}")
             self.flexible_action.setChecked(not is_flexible)
 
+    def is_run_on_startup(self):
+        """Check if the application is set to run on startup"""
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_READ)
+            try:
+                winreg.QueryValueEx(key, "WorkDayTimer")
+                return True
+            except FileNotFoundError:
+                return False
+            finally:
+                winreg.CloseKey(key)
+        except Exception:
+            return False
+
+    def toggle_run_on_startup(self):
+        """Toggle run on startup setting"""
+        is_enabled = self.startup_action.isChecked()
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            try:
+                if is_enabled:
+                    # Add to startup
+                    exe_path = os.path.abspath(sys.argv[0])
+                    winreg.SetValueEx(key, "WorkDayTimer", 0, winreg.REG_SZ, f'"{exe_path}"')
+                    QMessageBox.information(self, "Startup Setting", "Application has been added to startup.")
+                else:
+                    # Remove from startup
+                    winreg.DeleteValue(key, "WorkDayTimer")
+                    QMessageBox.information(self, "Startup Setting", "Application has been removed from startup.")
+            except FileNotFoundError:
+                if not is_enabled:
+                    # Already not in startup
+                    QMessageBox.information(self, "Startup Setting", "Application is not in startup.")
+            finally:
+                winreg.CloseKey(key)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update startup setting: {e}")
+            self.startup_action.setChecked(not is_enabled)
+
     def show_custom_timer_dialog(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Custom Timer")
@@ -486,6 +539,67 @@ class WorkdayTimer(QWidget):
             os.system("shutdown /s /t 1") #Windows shutdown command, adjust for other OS.
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Shutdown failed: {e}")
+
+    def check_for_updates(self):
+        """Check for updates from GitHub."""
+        try:
+            # Get current version from setup.py
+            import setup
+            current_version = setup.setup.version
+            
+            # Get latest version from GitHub API
+            api_url = "https://api.github.com/repos/uuvccc/WorkDayTimer/releases/latest"
+            response = requests.get(api_url)
+            
+            if response.status_code == 200:
+                release_data = response.json()
+                latest_version = release_data['tag_name'].lstrip('v')
+                
+                # Compare versions
+                if self._is_newer_version(latest_version, current_version):
+                    # Show update notification in the main thread
+                    QApplication.postEvent(self, QEvent(QEvent.User))
+        except Exception as e:
+            # Silent error handling to avoid disrupting the app
+            logging.error(f"Error checking for updates: {e}")
+    
+    def _is_newer_version(self, latest, current):
+        """Compare version strings to determine if a new version is available."""
+        try:
+            # Split version strings into components
+            latest_parts = list(map(int, latest.split('.')))
+            current_parts = list(map(int, current.split('.')))
+            
+            # Pad with zeros to make lengths equal
+            max_length = max(len(latest_parts), len(current_parts))
+            while len(latest_parts) < max_length:
+                latest_parts.append(0)
+            while len(current_parts) < max_length:
+                current_parts.append(0)
+            
+            # Compare each component
+            for l, c in zip(latest_parts, current_parts):
+                if l > c:
+                    return True
+                elif l < c:
+                    return False
+            return False
+        except Exception:
+            # If version parsing fails, assume no update
+            return False
+    
+    def event(self, event):
+        """Handle custom events, including update notifications."""
+        if event.type() == QEvent.User:
+            # Show update notification
+            reply = QMessageBox.question(self, "Update Available", 
+                                       "A new version of WorkDayTimer is available!\n" 
+                                       "Do you want to update now?",
+                                       QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                self.update_application()
+            return True
+        return super().event(event)
 
     def update_application(self):
         """Download the latest executable from GitHub and replace the current one."""

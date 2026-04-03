@@ -1,0 +1,80 @@
+# This workflow will automatically create a release on every push to master branch
+# and upload the built executable as a release asset
+
+name: Auto Release
+
+on:
+  push:
+    branches: [ "master" ]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed to get commit history for versioning
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pyinstaller
+        if (Test-Path requirements.txt) { pip install -r requirements.txt }
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile --windowed --name WorkDayTimer workday_timer.py
+
+    - name: Generate version number
+      id: version
+      run: |
+        # Get current version from setup.py
+        $version = (python -c "import setup; print(setup.setup.version)")
+        # Get commit count
+        $commitCount = git rev-list --count HEAD
+        # Create version string
+        $newVersion = "$version.$commitCount"
+        echo "::set-output name=version::$newVersion"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        release_name: Release v${{ steps.version.outputs.version }}
+        body: |
+          Automated release for commit ${{ github.sha }}
+          - Built on ${{ runner.os }}
+          - Commit: ${{ github.sha }}
+          - Author: ${{ github.actor }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/WorkDayTimer.exe
+        asset_name: WorkDayTimer.exe
+        asset_content_type: application/octet-stream
