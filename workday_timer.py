@@ -19,8 +19,12 @@ from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEF
     FLEXIBLE_MODE_FILE)
 
 # Configure logging
+# Get the directory where the script or executable is located
+base_dir = os.path.dirname(os.path.abspath(__file__))
+log_file = os.path.join(base_dir, 'app.log')
+
 logging.basicConfig(
-    filename='app.log',  # Log file name
+    filename=log_file,  # Log file name in the application directory
     level=logging.DEBUG,  # Only record logs at DEBUG level and above
     format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
 )
@@ -626,12 +630,12 @@ class WorkdayTimer(QWidget):
             temp_dir = tempfile.gettempdir()
             temp_exe_path = os.path.join(temp_dir, "WorkDayTimer_new.exe")
 
-            # Create progress dialog
-            progress_dialog = QDialog(None)  # Changed from QDialog(self) to QDialog(None)
+            # Create progress dialog - non-modal to allow user to continue using the app
+            progress_dialog = QDialog(None)
             progress_dialog.setWindowTitle("Downloading Update")
-            progress_dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
-            progress_dialog.setModal(True)
-            progress_dialog.resize(300, 100)
+            progress_dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Dialog)
+            progress_dialog.setModal(False)  # Non-modal to allow user interaction with main app
+            progress_dialog.resize(300, 120)
             
             layout = QVBoxLayout()
             label = QLabel("Downloading update...")
@@ -641,77 +645,153 @@ class WorkdayTimer(QWidget):
             progress_bar.setRange(0, 100)
             layout.addWidget(progress_bar)
             
+            # Add cancel button
+            cancel_button = QPushButton("Cancel")
+            layout.addWidget(cancel_button)
+            
             progress_dialog.setLayout(layout)
             progress_dialog.show()
             QApplication.processEvents()  # Ensure dialog is displayed
 
-            response = requests.get(github_url, stream=True)
-            if response.status_code == 200:
-                total_size = int(response.headers.get('content-length', 0))
-                downloaded_size = 0
-                
-                with open(temp_exe_path, "wb") as exe_file:
-                    if total_size == 0:
-                        # If content-length header is missing, set a default size for progress bar
-                        progress_bar.setRange(0, 0)  # Indeterminate progress bar
-                        label.setText("Downloading update... (size unknown)")
-                        QApplication.processEvents()
-                    
-                    for chunk in response.iter_content(chunk_size=1024):
-                        if chunk:
-                            exe_file.write(chunk)
-                            downloaded_size += len(chunk)
-                            if total_size > 0:
-                                progress = int((downloaded_size / total_size) * 100)
-                                progress_bar.setValue(progress)
-                                label.setText(f"Downloading update... {progress}%")
-                                QApplication.processEvents()  # Update UI
-                            else:
-                                # Update UI even when we don't know the total size
-                                label.setText(f"Downloading update... {downloaded_size} bytes")
+            # Flag to indicate if download was cancelled
+            download_cancelled = False
+            
+            def cancel_download():
+                nonlocal download_cancelled
+                download_cancelled = True
+                logging.info("Download cancelled by user")
+            
+            cancel_button.clicked.connect(cancel_download)
+
+            # Download in a separate thread
+            import threading
+            download_success = False
+            download_error = None
+            
+            def download_file():
+                nonlocal download_success, download_error
+                try:
+                    # Set timeout for the request
+                    response = requests.get(github_url, stream=True, timeout=30)
+                    if response.status_code == 200:
+                        total_size = int(response.headers.get('content-length', 0))
+                        downloaded_size = 0
+                        
+                        with open(temp_exe_path, "wb") as exe_file:
+                            # Create a function to update UI safely
+                            def update_ui(progress_value=None, status_text=None, indeterminate=False):
+                                def do_update():
+                                    if indeterminate:
+                                        progress_bar.setRange(0, 0)
+                                    elif progress_value is not None:
+                                        progress_bar.setRange(0, 100)
+                                        progress_bar.setValue(progress_value)
+                                    if status_text is not None:
+                                        label.setText(status_text)
+                                QApplication.postEvent(progress_dialog, QEvent(QEvent.User))
                                 QApplication.processEvents()
+                            
+                            if total_size == 0:
+                                # If content-length header is missing, set indeterminate progress bar
+                                update_ui(indeterminate=True, status_text="Downloading update... (size unknown)")
+                            
+                            for chunk in response.iter_content(chunk_size=4096):  # Use larger chunk size for faster download
+                                if download_cancelled:
+                                    logging.info("Download cancelled, closing connection")
+                                    break
+                                if chunk:
+                                    exe_file.write(chunk)
+                                    downloaded_size += len(chunk)
+                                    if total_size > 0:
+                                        progress = int((downloaded_size / total_size) * 100)
+                                        # Update UI in main thread
+                                        QApplication.postEvent(progress_dialog, QEvent(QEvent.User))
+                                        progress_bar.setValue(progress)
+                                        label.setText(f"Downloading update... {progress}%")
+                                    else:
+                                        # Update UI even when we don't know the total size
+                                        QApplication.postEvent(progress_dialog, QEvent(QEvent.User))
+                                        label.setText(f"Downloading update... {downloaded_size} bytes")
+                                    QApplication.processEvents()
+                        
+                        if not download_cancelled:
+                            download_success = True
+                    else:
+                        download_error = f"Failed to download the update. HTTP Status Code: {response.status_code}"
+                        logging.error(download_error)
+                except requests.exceptions.Timeout:
+                    download_error = "Download timed out. Please check your network connection and try again."
+                    logging.error(download_error)
+                except requests.exceptions.RequestException as e:
+                    download_error = f"Network error: {str(e)}"
+                    logging.error(download_error)
+                except Exception as e:
+                    download_error = f"An error occurred: {str(e)}"
+                    logging.error(download_error)
+            
+            # Start download thread
+            download_thread = threading.Thread(target=download_file)
+            download_thread.daemon = True
+            download_thread.start()
+            
+            # Create a timer to check download status periodically
+            status_check_timer = QTimer(self)
+            
+            def check_download_status():
+                if not download_thread.is_alive():
+                    status_check_timer.stop()
+                    progress_dialog.close()
+                    
+                    if download_cancelled:
+                        QMessageBox.information(self, "Update Cancelled", "The update download was cancelled.")
+                    elif download_error:
+                        QMessageBox.critical(self, "Update Failed", download_error)
+                    elif not download_success:
+                        QMessageBox.critical(self, "Update Failed", "Download failed for unknown reason.")
+                    else:
+                        # Download completed successfully, proceed with update
+                        if not is_running_as_exe:
+                            # If running as script, just move the downloaded file to current directory
+                            import shutil
+                            try:
+                                shutil.move(temp_exe_path, local_exe_path)
+                                QMessageBox.information(self, "Update Complete", 
+                                                      f"Executable downloaded successfully!\n"
+                                                      f"Location: {local_exe_path}\n"
+                                                      f"Run this file to start the application as an executable.")
+                            except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Failed to move downloaded file: {e}")
+                        else:
+                            # Create an updater script that will run after this application closes
+                            # Place the updater script in the same directory as the executable
+                            updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
+                            with open(updater_script, "w") as f:
+                                f.write(f"""@echo off
+ timeout /t 2 /nobreak >nul
+ taskkill /f /im WorkDayTimer.exe 2>nul
+ del "{local_exe_path}"
+ move "{temp_exe_path}" "{local_exe_path}"
 
-                progress_dialog.close()
-                
-                if not is_running_as_exe:
-                    # If running as script, just move the downloaded file to current directory
-                    import shutil
-                    shutil.move(temp_exe_path, local_exe_path)
-                    QMessageBox.information(self, "Update Complete", 
-                                          f"Executable downloaded successfully!\n"
-                                          f"Location: {local_exe_path}\n"
-                                          f"Run this file to start the application as an executable.")
-                    return
-                
-                # Create an updater script that will run after this application closes
-                # Place the updater script in the same directory as the executable
-                updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
-                with open(updater_script, "w") as f:
-                    f.write(f"""@echo off
-timeout /t 2 /nobreak >nul
-taskkill /f /im WorkDayTimer.exe 2>nul
-del "{local_exe_path}"
-move "{temp_exe_path}" "{local_exe_path}"
+ :: Set the PATH to include system and user DLL directories
+ set "PATH=%PATH%;C:\\Windows\\System32;C:\\Windows\\SysWOW64"
 
-:: Set the PATH to include system and user DLL directories
-set "PATH=%PATH%;C:\\Windows\\System32;C:\\Windows\\SysWOW64"
-
-cd /d "{os.path.dirname(local_exe_path)}"
-start "" "{os.path.basename(local_exe_path)}"
-del "%~f0"
-""")
-                
-                # Launch the updater script and exit the current application
-                import subprocess
-                # Set environment variables to help find DLLs
-                env = os.environ.copy()
-                env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
-                subprocess.Popen(updater_script, shell=True, env=env)
-                self.exit_app()
-            else:
-                progress_dialog.close()
-                QMessageBox.critical(self, "Update Failed", f"Failed to download the update. HTTP Status Code: {response.status_code}")
+ cd /d "{os.path.dirname(local_exe_path)}"
+ start "" "{os.path.basename(local_exe_path)}"
+ del "%~f0"
+ """)
+                            
+                            # Launch the updater script and exit the current application
+                            import subprocess
+                            # Set environment variables to help find DLLs
+                            env = os.environ.copy()
+                            env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
+                            subprocess.Popen(updater_script, shell=True, env=env)
+                            self.exit_app()
+            
+            status_check_timer.timeout.connect(check_download_status)
+            status_check_timer.start(100)  # Check every 100ms
         except Exception as e:
+            logging.error(f"Update error: {e}")
             if 'progress_dialog' in locals() and progress_dialog:
                 progress_dialog.close()
             QMessageBox.critical(self, "Update Error", f"An error occurred during the update: {e}")
