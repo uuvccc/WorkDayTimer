@@ -228,28 +228,66 @@ def update_application(app):
                         # Create an updater script that will run after this application closes
                         # Place the updater script in the same directory as the executable
                         updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
+                        
+                        # Ensure paths use backslashes for batch script
+                        local_exe_path_batch = local_exe_path.replace('/', '\\')
+                        temp_exe_path_batch = temp_exe_path.replace('/', '\\')
+                        exe_dir_batch = os.path.dirname(local_exe_path).replace('/', '\\')
+                        exe_name_batch = os.path.basename(local_exe_path)
+                        
                         with open(updater_script, "w") as f:
                             f.write(f"""@echo off
+ :: Create a log file for debugging
+ echo Updater started > updater.log
+ echo Local exe path: {local_exe_path_batch} >> updater.log
+ echo Temp exe path: {temp_exe_path_batch} >> updater.log
+
  :: Wait for the old process to fully exit
- timeout /t 3 /nobreak >nul
+ echo Waiting for old process to exit... >> updater.log
+ timeout /t 5 /nobreak >nul
 
  :: Kill any remaining instances
- taskkill /f /im WorkDayTimer.exe 2>nul
+ echo Killing remaining instances... >> updater.log
+ taskkill /f /im WorkDayTimer.exe 2>>updater.log
 
  :: Wait a bit more to ensure resources are released
- timeout /t 1 /nobreak >nul
+ echo Waiting for resources to be released... >> updater.log
+ timeout /t 2 /nobreak >nul
+
+ :: Check if files exist
+ echo Checking if files exist... >> updater.log
+ if exist "{local_exe_path_batch}" (
+     echo Old executable exists >> updater.log
+ ) else (
+     echo Old executable does not exist >> updater.log
+ )
+
+ if exist "{temp_exe_path_batch}" (
+     echo New executable exists >> updater.log
+ ) else (
+     echo New executable does not exist >> updater.log
+ )
 
  :: Delete the old executable
- del "{local_exe_path}" 2>nul
+ echo Deleting old executable... >> updater.log
+ del "{local_exe_path_batch}" 2>>updater.log
 
  :: Move the new executable
- move "{temp_exe_path}" "{local_exe_path}"
+ echo Moving new executable... >> updater.log
+ move "{temp_exe_path_batch}" "{local_exe_path_batch}" 2>>updater.log
+
+ :: Check if move was successful
+ if exist "{local_exe_path_batch}" (
+     echo Move successful >> updater.log
+ ) else (
+     echo Move failed >> updater.log
+ )
 
  :: Set the PATH to include system and user DLL directories
  set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64"
 
  :: Change to the executable directory
- cd /d "{os.path.dirname(local_exe_path)}"
+ cd /d "{exe_dir_batch}"
 
  :: Clear any PYTHONPATH or other environment variables that might interfere
  set PYTHONPATH=
@@ -257,18 +295,26 @@ def update_application(app):
  set TMP=%TMP%
 
  :: Start the new executable
- start "" "{os.path.basename(local_exe_path)}"
+ echo Starting new executable... >> updater.log
+ start "" "{exe_name_batch}"
 
  :: Wait a bit before deleting the script
- timeout /t 1 /nobreak >nul
+ timeout /t 2 /nobreak >nul
+ echo Deleting updater script... >> updater.log
  del "%~f0"
  """)
+                        
+                        # Make sure the updater script is executable
+                        os.chmod(updater_script, 0o755)
                         
                         # Launch the updater script and exit the current application
                         # Set environment variables to help find DLLs
                         env = os.environ.copy()
                         env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
-                        subprocess.Popen(updater_script, shell=True, env=env)
+                        
+                        # Use CREATE_NEW_PROCESS_GROUP to ensure the script runs independently
+                        import subprocess
+                        subprocess.Popen(updater_script, shell=True, env=env, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
                         app.quit()
         
         status_check_timer.timeout.connect(check_download_status)
