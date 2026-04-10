@@ -762,156 +762,52 @@ class WorkdayTimer(QWidget):
                             except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to move downloaded file: {e}")
                         else:
-                            # === RADICAL REWRITE: Professional updater implementation ===
-                            # Create a fully independent updater that doesn't rely on Python
-                            updater_batch = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
-                            
-                            # Create a batch file with robust update logic
-                            with open(updater_batch, "w") as f:
+                            # Create an updater script that will run after this application closes
+                            # Place the updater script in the same directory as the executable
+                            updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
+                            with open(updater_script, "w") as f:
                                 f.write(f"""@echo off
-setlocal EnableDelayedExpansion
+ :: Wait for the old process to fully exit
+ timeout /t 3 /nobreak >nul
 
-:: Set variables
-set "OLD_EXE={local_exe_path}"
-set "NEW_EXE={temp_exe_path}"
-set "EXE_DIR={os.path.dirname(local_exe_path)}"
-set "LOG_FILE=%EXE_DIR%\update.log"
+ :: Kill any remaining instances
+ taskkill /f /im WorkDayTimer.exe 2>nul
 
-:: Create log file
-echo [%DATE% %TIME%] Updater started >> "%LOG_FILE%"
-echo Old EXE: %OLD_EXE% >> "%LOG_FILE%"
-echo New EXE: %NEW_EXE% >> "%LOG_FILE%"
-echo EXE Directory: %EXE_DIR% >> "%LOG_FILE%"
+ :: Wait a bit more to ensure resources are released
+ timeout /t 1 /nobreak >nul
 
-:: Change to the executable directory
-cd /d "%EXE_DIR%"
-echo [%DATE% %TIME%] Changed to directory: %CD% >> "%LOG_FILE%"
+ :: Delete the old executable
+ del "{local_exe_path}" 2>nul
 
-:: Wait for the old process to fully exit
-echo [%DATE% %TIME%] Waiting for old process to exit... >> "%LOG_FILE%"
-timeout /t 10 /nobreak >nul
+ :: Move the new executable
+ move "{temp_exe_path}" "{local_exe_path}"
 
-:: Kill any remaining instances
-echo [%DATE% %TIME%] Killing any remaining instances... >> "%LOG_FILE%"
-taskkill /f /im WorkDayTimer.exe 2>> "%LOG_FILE%"
+ :: Set the PATH to include system and user DLL directories
+ set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64"
 
-:: Wait a bit more to ensure resources are released
-echo [%DATE% %TIME%] Waiting for resources to be released... >> "%LOG_FILE%"
-timeout /t 5 /nobreak >nul
+ :: Change to the executable directory
+ cd /d "{os.path.dirname(local_exe_path)}"
 
-:: Verify the new executable exists
-if not exist "%NEW_EXE%" (
-    echo [%DATE% %TIME%] ERROR: New executable not found >> "%LOG_FILE%"
-    goto cleanup
-)
-echo [%DATE% %TIME%] New executable found >> "%LOG_FILE%"
+ :: Clear any PYTHONPATH or other environment variables that might interfere
+ set PYTHONPATH=
+ set TEMP=%TEMP%
+ set TMP=%TMP%
 
-:: Create backup of old executable
-set "BACKUP_EXE=%OLD_EXE%.bak"
-if exist "%OLD_EXE%" (
-    echo [%DATE% %TIME%] Creating backup... >> "%LOG_FILE%"
-    copy /y "%OLD_EXE%" "%BACKUP_EXE%" >> "%LOG_FILE%"
-    if errorlevel 1 (
-        echo [%DATE% %TIME%] ERROR: Failed to create backup >> "%LOG_FILE%"
-        goto cleanup
-    )
-    echo [%DATE% %TIME%] Backup created: %BACKUP_EXE% >> "%LOG_FILE%"
-)
+ :: Start the new executable
+ start "" "{os.path.basename(local_exe_path)}"
 
-:: Delete the old executable
-echo [%DATE% %TIME%] Deleting old executable... >> "%LOG_FILE%"
-del /f /q "%OLD_EXE%" 2>> "%LOG_FILE%"
-
-:: Wait for deletion to complete
-timeout /t 2 /nobreak >nul
-
-:: Move the new executable
-echo [%DATE% %TIME%] Moving new executable... >> "%LOG_FILE%"
-move /y "%NEW_EXE%" "%OLD_EXE%" >> "%LOG_FILE%"
-if errorlevel 1 (
-    echo [%DATE% %TIME%] ERROR: Failed to move new executable >> "%LOG_FILE%"
-    :: Try to restore from backup
-    if exist "%BACKUP_EXE%" (
-        echo [%DATE% %TIME%] Restoring from backup... >> "%LOG_FILE%"
-        copy /y "%BACKUP_EXE%" "%OLD_EXE%" >> "%LOG_FILE%"
-    )
-    goto cleanup
-)
-echo [%DATE% %TIME%] New executable moved successfully >> "%LOG_FILE%"
-
-:: Wait for move to complete
-timeout /t 2 /nobreak >nul
-
-:: Verify the new executable exists
-if not exist "%OLD_EXE%" (
-    echo [%DATE% %TIME%] ERROR: New executable not found after move >> "%LOG_FILE%"
-    :: Try to restore from backup
-    if exist "%BACKUP_EXE%" (
-        echo [%DATE% %TIME%] Restoring from backup... >> "%LOG_FILE%"
-        copy /y "%BACKUP_EXE%" "%OLD_EXE%" >> "%LOG_FILE%"
-    )
-    goto cleanup
-)
-echo [%DATE% %TIME%] New executable verified >> "%LOG_FILE%"
-
-:: Set clean environment
-set "PYTHONPATH="
-set "PYTHONHOME="
-set "PATH=C:\Windows\System32;C:\Windows\SysWOW64;%PATH%"
-echo [%DATE% %TIME%] Environment variables set >> "%LOG_FILE%"
-
-:: Start the new executable with clean environment
-echo [%DATE% %TIME%] Starting new executable... >> "%LOG_FILE%"
-start "" /D "%EXE_DIR%" "%OLD_EXE%"
-if errorlevel 1 (
-    echo [%DATE% %TIME%] ERROR: Failed to start new executable >> "%LOG_FILE%"
-    goto cleanup
-)
-echo [%DATE% %TIME%] New executable started successfully >> "%LOG_FILE%"
-
-:cleanup
-:: Wait before cleanup
-echo [%DATE% %TIME%] Waiting before cleanup... >> "%LOG_FILE%"
-timeout /t 5 /nobreak >nul
-
-:: Cleanup backup
-if exist "%BACKUP_EXE%" (
-    echo [%DATE% %TIME%] Cleaning up backup... >> "%LOG_FILE%"
-    del /f /q "%BACKUP_EXE%" 2>> "%LOG_FILE%"
-)
-
-:: Cleanup this script
-echo [%DATE% %TIME%] Cleaning up updater... >> "%LOG_FILE%"
-timeout /t 1 /nobreak >nul
-del /f /q "%~f0" 2>> "%LOG_FILE%"
-
-:: Exit
-echo [%DATE% %TIME%] Updater finished >> "%LOG_FILE%"
-exit
-""")
+ :: Wait a bit before deleting the script
+ timeout /t 1 /nobreak >nul
+ del "%~f0"
+ """)
                             
-                            # Launch the updater batch file and exit immediately
-                            print(f"Launching robust updater batch: {updater_batch}")
+                            # Launch the updater script and exit the current application
                             import subprocess
-                            
-                            # Use CREATE_NEW_PROCESS_GROUP to ensure the batch file runs independently
-                            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-                            
-                            # Launch the batch file with clean environment
+                            # Set environment variables to help find DLLs
                             env = os.environ.copy()
-                            env['PATH'] = r"C:\Windows\System32;C:\Windows\SysWOW64;" + env.get('PATH', '')
-                            
-                            subprocess.Popen(
-                                updater_batch, 
-                                shell=True, 
-                                env=env,
-                                creationflags=creation_flags,
-                                close_fds=True
-                            )
-                            
-                            # Exit immediately to release all resources
-                            import sys
-                            sys.exit(0)
+                            env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
+                            subprocess.Popen(updater_script, shell=True, env=env)
+                            self.exit_app()
             
             status_check_timer.timeout.connect(check_download_status)
             status_check_timer.start(100)  # Check every 100ms
