@@ -50,11 +50,34 @@ def create_tray_menu(app):
     custom_timer_action.triggered.connect(app.show_custom_timer_dialog)
     menu.addAction(custom_timer_action)
 
-    # Add an update action to the tray menu
-    update_action = QAction("Update Application", app)
+    # Add update-related actions to the tray menu
+    update_menu = QMenu("Update", app)
+    
+    # Check for updates action
+    check_update_action = QAction("Check for Updates", app)
     from workday_timer.updater.updater import update_application
-    update_action.triggered.connect(lambda: update_application(app))
-    menu.addAction(update_action)
+    check_update_action.triggered.connect(lambda: update_application(app))
+    update_menu.addAction(check_update_action)
+    
+    # Update settings action
+    settings_action = QAction("Update Settings", app)
+    def show_update_settings():
+        from workday_timer.updater.updater import Updater
+        updater = Updater(app)
+        updater.show_config_ui()
+    settings_action.triggered.connect(show_update_settings)
+    update_menu.addAction(settings_action)
+    
+    # Update history action
+    history_action = QAction("Update History", app)
+    def show_update_history():
+        from workday_timer.updater.updater import Updater
+        updater = Updater(app)
+        updater.show_history_ui()
+    history_action.triggered.connect(show_update_history)
+    update_menu.addAction(history_action)
+    
+    menu.addMenu(update_menu)
 
     # Add a startup action to the tray menu
     startup_action = QAction(f"Run on Startup: {'On' if is_run_on_startup() else 'Off'}", app)
