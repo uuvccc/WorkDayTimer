@@ -269,7 +269,7 @@ def update_application(app):
                         env = os.environ.copy()
                         env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
                         subprocess.Popen(updater_script, shell=True, env=env)
-                        app.exit_app()
+                        app.quit()
         
         status_check_timer.timeout.connect(check_download_status)
         status_check_timer.start(100)  # Check every 100ms
