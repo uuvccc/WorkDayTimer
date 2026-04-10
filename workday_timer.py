@@ -776,11 +776,6 @@ class WorkdayTimer(QWidget):
  :: Wait a bit more to ensure resources are released
  timeout /t 2 /nobreak >nul
 
- :: Clean up PyInstaller temporary directories
- for /d %%d in ("%TEMP%\_MEI*") do (
-     rd /s /q "%%d" 2>nul
- )
-
  :: Delete the old executable
  del "{local_exe_path}" 2>nul
 
@@ -794,10 +789,13 @@ class WorkdayTimer(QWidget):
  timeout /t 1 /nobreak >nul
 
  :: Set the PATH to include system and user DLL directories
- set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64"
+ set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64;%SystemRoot%\System32;%SystemRoot%"
 
  :: Change to the executable directory
  cd /d "{os.path.dirname(local_exe_path)}"
+
+ :: Set working directory as current directory
+ set "CD=%CD%"
 
  :: Clear any environment variables that might interfere
  set PYTHONPATH=
