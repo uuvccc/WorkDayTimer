@@ -767,16 +767,37 @@ class WorkdayTimer(QWidget):
                             updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
                             with open(updater_script, "w") as f:
                                 f.write(f"""@echo off
- timeout /t 2 /nobreak >nul
+ :: Wait for the old process to fully exit
+ timeout /t 3 /nobreak >nul
+
+ :: Kill any remaining instances
  taskkill /f /im WorkDayTimer.exe 2>nul
- del "{local_exe_path}"
+
+ :: Wait a bit more to ensure resources are released
+ timeout /t 1 /nobreak >nul
+
+ :: Delete the old executable
+ del "{local_exe_path}" 2>nul
+
+ :: Move the new executable
  move "{temp_exe_path}" "{local_exe_path}"
 
  :: Set the PATH to include system and user DLL directories
- set "PATH=%PATH%;C:\\Windows\\System32;C:\\Windows\\SysWOW64"
+ set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64"
 
+ :: Change to the executable directory
  cd /d "{os.path.dirname(local_exe_path)}"
+
+ :: Clear any PYTHONPATH or other environment variables that might interfere
+ set PYTHONPATH=
+ set TEMP=%TEMP%
+ set TMP=%TMP%
+
+ :: Start the new executable
  start "" "{os.path.basename(local_exe_path)}"
+
+ :: Wait a bit before deleting the script
+ timeout /t 1 /nobreak >nul
  del "%~f0"
  """)
                             
