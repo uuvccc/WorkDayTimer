@@ -10,14 +10,15 @@ setup(
         "Pillow>=9.0.0",
         "requests>=2.28.0",
         "numpy>=1.21.0",
+        "pywin32>=300",
     ],
     entry_points={
         'console_scripts': [
-            'workday_timer=workday_timer:main',
+            'workday_timer=workday_timer.main:main',
         ],
     },
     author="Your Name",
     description="A desktop timer application for tracking work hours",
     keywords="timer, desktop, work",
     python_requires=">=3.6",
-)
+) 
