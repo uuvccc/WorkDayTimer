@@ -59,6 +59,11 @@ def create_tray_menu(app):
     check_update_action.triggered.connect(lambda: update_application(app))
     update_menu.addAction(check_update_action)
     
+    # Force update action
+    force_update_action = QAction("Force Update", app)
+    force_update_action.triggered.connect(lambda: update_application(app, force=True))
+    update_menu.addAction(force_update_action)
+    
     # Update settings action
     settings_action = QAction("Update Settings", app)
     def show_update_settings():
