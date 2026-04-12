@@ -768,30 +768,19 @@ class WorkdayTimer(QWidget):
                             with open(updater_script, "w") as f:
                                 f.write(f"""@echo off
  :: Wait for the old process to fully exit
- timeout /t 5 /nobreak >nul
+ timeout /t 3 /nobreak >nul
 
  :: Kill any remaining instances
  taskkill /f /im WorkDayTimer.exe 2>nul
 
  :: Wait a bit more to ensure resources are released
- timeout /t 2 /nobreak >nul
-
- :: Clean up PyInstaller temporary directories
- for /d %%d in ("%TEMP%\_MEI*") do (
-     rd /s /q "%%d" 2>nul
- )
+ timeout /t 1 /nobreak >nul
 
  :: Delete the old executable
  del "{local_exe_path}" 2>nul
 
- :: Wait for file operations to complete
- timeout /t 1 /nobreak >nul
-
  :: Move the new executable
  move "{temp_exe_path}" "{local_exe_path}"
-
- :: Wait for move operation to complete
- timeout /t 1 /nobreak >nul
 
  :: Set the PATH to include system and user DLL directories
  set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64"
@@ -799,17 +788,16 @@ class WorkdayTimer(QWidget):
  :: Change to the executable directory
  cd /d "{os.path.dirname(local_exe_path)}"
 
- :: Clear any environment variables that might interfere
+ :: Clear any PYTHONPATH or other environment variables that might interfere
  set PYTHONPATH=
- set PYTHONHOME=
  set TEMP=%TEMP%
  set TMP=%TMP%
 
- :: Start the new executable with a fresh environment
+ :: Start the new executable
  start "" "{os.path.basename(local_exe_path)}"
 
  :: Wait a bit before deleting the script
- timeout /t 2 /nobreak >nul
+ timeout /t 1 /nobreak >nul
  del "%~f0"
  """)
                             
