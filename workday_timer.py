@@ -762,94 +762,61 @@ class WorkdayTimer(QWidget):
                             except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to move downloaded file: {e}")
                         else:
-                            # Create a Python updater script that will run after this application closes
+                            # Create an updater script that will run after this application closes
                             # Place the updater script in the same directory as the executable
-                            updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.py")
+                            updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
                             with open(updater_script, "w") as f:
-                                f.write(f"""import os
-import time
-import subprocess
-import sys
+                                f.write(f"""@echo off
+ :: Wait for the old process to fully exit
+ timeout /t 5 /nobreak >nul
 
-# Paths
-old_exe_path = r"{local_exe_path}"
-temp_exe_path = r"{temp_exe_path}"
-executable_dir = r"{os.path.dirname(local_exe_path)}"
+ :: Kill any remaining instances
+ taskkill /f /im WorkDayTimer.exe 2>nul
 
-print(f"Updater started. Old EXE: {old_exe_path}")
-print(f"Temp EXE: {temp_exe_path}")
+ :: Wait a bit more to ensure resources are released
+ timeout /t 2 /nobreak >nul
 
-# Wait for the old process to fully exit
-time.sleep(5)
+ :: Delete the old executable
+ del "{local_exe_path}" 2>nul
 
-# Kill any remaining instances
-try:
-    subprocess.run(['taskkill', '/f', '/im', 'WorkDayTimer.exe'], capture_output=True, text=True)
-except Exception as e:
-    print(f"Error killing process: {e}")
+ :: Wait for file operations to complete
+ timeout /t 1 /nobreak >nul
 
-# Wait a bit more to ensure resources are released
-time.sleep(2)
+ :: Move the new executable
+ move "{temp_exe_path}" "{local_exe_path}"
 
-# Delete the old executable
-try:
-    if os.path.exists(old_exe_path):
-        os.remove(old_exe_path)
-        print(f"Old executable deleted: {old_exe_path}")
-    else:
-        print(f"Old executable not found: {old_exe_path}")
-except Exception as e:
-    print(f"Error deleting old executable: {e}")
+ :: Wait for move operation to complete
+ timeout /t 1 /nobreak >nul
 
-# Wait for file operations to complete
-time.sleep(1)
+ :: Set the PATH to include system and user DLL directories
+ set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64;%SystemRoot%\System32;%SystemRoot%"
 
-# Move the new executable
-try:
-    if os.path.exists(temp_exe_path):
-        os.replace(temp_exe_path, old_exe_path)
-        print(f"New executable moved to: {old_exe_path}")
-    else:
-        print(f"New executable not found: {temp_exe_path}")
-except Exception as e:
-    print(f"Error moving new executable: {e}")
+ :: Change to the executable directory
+ cd /d "{os.path.dirname(local_exe_path)}"
 
-# Wait for move operation to complete
-time.sleep(1)
+ :: Set working directory as current directory
+ set "CD=%CD%"
 
-# Change to the executable directory
-os.chdir(executable_dir)
-print(f"Changed to directory: {os.getcwd()}")
+ :: Clear any environment variables that might interfere
+ set PYTHONPATH=
+ set PYTHONHOME=
+ set TEMP=%TEMP%
+ set TMP=%TMP%
 
-# Clear any environment variables that might interfere
-for var in ['PYTHONPATH', 'PYTHONHOME']:
-    if var in os.environ:
-        del os.environ[var]
+ :: Start the new executable with a fresh environment
+ start "" "{local_exe_path}"
 
-# Start the new executable
-print(f"Starting new executable: {old_exe_path}")
-try:
-    # Use CREATE_NEW_PROCESS_GROUP to avoid inheriting environment issues
-    subprocess.Popen([old_exe_path], cwd=executable_dir, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-    print("New executable started successfully")
-except Exception as e:
-    print(f"Error starting new executable: {e}")
-
-# Wait a bit before deleting the script
-time.sleep(3)
-
-# Delete the updater script
-try:
-    os.remove(__file__)
-    print(f"Updater script deleted: {__file__}")
-except Exception as e:
-    print(f"Error deleting updater script: {e}")
-""")
+ :: Wait a bit before deleting the script
+ timeout /t 2 /nobreak >nul
+ del "%~f0"
+ """)
                             
                             # Launch the updater script and exit the current application
                             import subprocess
-                            # Use Python to run the updater script
-                            subprocess.Popen([sys.executable, updater_script], shell=True, close_fds=True)
+                            # Set environment variables to help find DLLs
+                            env = os.environ.copy()
+                            env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
+                            subprocess.Popen(updater_script, shell=True, env=env)
                             self.exit_app()
             
             status_check_timer.timeout.connect(check_download_status)
