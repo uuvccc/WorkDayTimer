@@ -762,191 +762,94 @@ class WorkdayTimer(QWidget):
                             except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to move downloaded file: {e}")
                         else:
-                            # Create a professional updater script that will run after this application closes
+                            # Create a Python updater script that will run after this application closes
                             # Place the updater script in the same directory as the executable
-                            updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.exe")
-                            
-                            # Create a temporary Python script first
-                            temp_updater_script = os.path.join(os.path.dirname(local_exe_path), "updater_temp.py")
-                            with open(temp_updater_script, "w") as f:
+                            updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.py")
+                            with open(updater_script, "w") as f:
                                 f.write(f"""import os
 import time
 import subprocess
 import sys
-import shutil
 
 # Paths
 old_exe_path = r"{local_exe_path}"
 temp_exe_path = r"{temp_exe_path}"
 executable_dir = r"{os.path.dirname(local_exe_path)}"
 
-# Redirect output to a log file
-log_file = os.path.join(executable_dir, "update.log")
-sys.stdout = open(log_file, 'w')
-sys.stderr = sys.stdout
-
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Updater started")
-print(f"Old EXE: {old_exe_path}")
+print(f"Updater started. Old EXE: {old_exe_path}")
 print(f"Temp EXE: {temp_exe_path}")
-print(f"Executable directory: {executable_dir}")
 
 # Wait for the old process to fully exit
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Waiting for old process to exit...")
 time.sleep(5)
 
 # Kill any remaining instances
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Killing any remaining instances...")
 try:
-    result = subprocess.run(['taskkill', '/f', '/im', 'WorkDayTimer.exe'], capture_output=True, text=True)
-    print(f"Taskkill output: {result.stdout}")
-    if result.stderr:
-        print(f"Taskkill error: {result.stderr}")
+    subprocess.run(['taskkill', '/f', '/im', 'WorkDayTimer.exe'], capture_output=True, text=True)
 except Exception as e:
     print(f"Error killing process: {e}")
 
 # Wait a bit more to ensure resources are released
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Waiting for resources to be released...")
-time.sleep(3)
-
-# Verify the new executable exists
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Verifying new executable...")
-if not os.path.exists(temp_exe_path):
-    print(f"ERROR: New executable not found at {temp_exe_path}")
-    sys.exit(1)
-
-# Make sure the new executable is readable
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Checking new executable permissions...")
-try:
-    with open(temp_exe_path, 'rb') as f:
-        pass
-    print("New executable is readable")
-except Exception as e:
-    print(f"ERROR: Cannot read new executable: {e}")
-    sys.exit(1)
-
-# Atomic replacement of the executable
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Replacing old executable...")
-try:
-    # First, create a backup
-    backup_path = old_exe_path + ".bak"
-    if os.path.exists(old_exe_path):
-        shutil.copy2(old_exe_path, backup_path)
-        print(f"Created backup: {backup_path}")
-    
-    # Use atomic replace
-    os.replace(temp_exe_path, old_exe_path)
-    print(f"Successfully replaced executable: {old_exe_path}")
-    
-    # Verify the replacement
-    if os.path.exists(old_exe_path):
-        print(f"Verified: New executable exists at {old_exe_path}")
-        print(f"File size: {os.path.getsize(old_exe_path)} bytes")
-    else:
-        print("ERROR: Replacement failed - new executable not found")
-        # Try to restore from backup
-        if os.path.exists(backup_path):
-            print("Restoring from backup...")
-            os.replace(backup_path, old_exe_path)
-        sys.exit(1)
-        
-except Exception as e:
-    print(f"ERROR during replacement: {e}")
-    # Try to restore from backup
-    backup_path = old_exe_path + ".bak"
-    if os.path.exists(backup_path):
-        print("Restoring from backup...")
-        try:
-            os.replace(backup_path, old_exe_path)
-        except Exception as restore_error:
-            print(f"ERROR restoring backup: {restore_error}")
-    sys.exit(1)
-
-# Wait for file operations to complete
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Waiting for file operations to complete...")
 time.sleep(2)
 
+# Delete the old executable
+try:
+    if os.path.exists(old_exe_path):
+        os.remove(old_exe_path)
+        print(f"Old executable deleted: {old_exe_path}")
+    else:
+        print(f"Old executable not found: {old_exe_path}")
+except Exception as e:
+    print(f"Error deleting old executable: {e}")
+
+# Wait for file operations to complete
+time.sleep(1)
+
+# Move the new executable
+try:
+    if os.path.exists(temp_exe_path):
+        os.replace(temp_exe_path, old_exe_path)
+        print(f"New executable moved to: {old_exe_path}")
+    else:
+        print(f"New executable not found: {temp_exe_path}")
+except Exception as e:
+    print(f"Error moving new executable: {e}")
+
+# Wait for move operation to complete
+time.sleep(1)
+
 # Change to the executable directory
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Changing to executable directory...")
 os.chdir(executable_dir)
-print(f"Current directory: {os.getcwd()}")
+print(f"Changed to directory: {os.getcwd()}")
 
 # Clear any environment variables that might interfere
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Clearing environment variables...")
-for var in ['PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP']:
+for var in ['PYTHONPATH', 'PYTHONHOME']:
     if var in os.environ:
         del os.environ[var]
-        print(f"Cleared {var}")
-
-# Ensure the PATH includes system directories
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Setting PATH environment variable...")
-os.environ['PATH'] = r"C:\Windows\System32;C:\Windows\SysWOW64;" + os.environ.get('PATH', '')
-print(f"PATH set to: {os.environ['PATH'][:100]}...")
 
 # Start the new executable
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting new executable...")
+print(f"Starting new executable: {old_exe_path}")
 try:
-    # Use CREATE_NEW_PROCESS_GROUP and DETACHED_PROCESS to ensure clean start
-    creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-    process = subprocess.Popen(
-        [old_exe_path], 
-        cwd=executable_dir, 
-        creationflags=creation_flags,
-        close_fds=True
-    )
-    print(f"New executable started with PID: {process.pid}")
-    print("Update completed successfully!")
+    # Use CREATE_NEW_PROCESS_GROUP to avoid inheriting environment issues
+    subprocess.Popen([old_exe_path], cwd=executable_dir, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    print("New executable started successfully")
 except Exception as e:
-    print(f"ERROR starting new executable: {e}")
-    # Try to start with basic method
-    try:
-        print("Trying basic start method...")
-        subprocess.Popen([old_exe_path], cwd=executable_dir)
-        print("New executable started with basic method")
-    except Exception as e2:
-        print(f"ERROR with basic start: {e2}")
+    print(f"Error starting new executable: {e}")
 
-# Wait a bit before cleanup
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Waiting before cleanup...")
-time.sleep(5)
+# Wait a bit before deleting the script
+time.sleep(3)
 
-# Cleanup
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Cleaning up...")
+# Delete the updater script
 try:
-    # Delete backup if it exists
-    backup_path = old_exe_path + ".bak"
-    if os.path.exists(backup_path):
-        os.remove(backup_path)
-        print(f"Backup deleted: {backup_path}")
-    
-    # Delete this script
     os.remove(__file__)
     print(f"Updater script deleted: {__file__}")
 except Exception as e:
-    print(f"Error during cleanup: {e}")
-
-print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Updater finished")
-sys.stdout.close()
+    print(f"Error deleting updater script: {e}")
 """)
                             
-                            # Launch the updater script using Python
-                            print(f"Launching updater script: {temp_updater_script}")
+                            # Launch the updater script and exit the current application
                             import subprocess
-                            import sys
-                            
-                            # Create a batch file to run the Python script with proper environment
-                            batch_script = os.path.join(os.path.dirname(local_exe_path), "run_updater.bat")
-                            with open(batch_script, "w") as f:
-                                f.write(f"""@echo off
-:: Run the Python updater script
-python "{temp_updater_script}"
-
-:: Delete this batch file
-timeout /t 1 /nobreak >nul
-del "%~f0"
-""")
-                            
-                            # Launch the batch file which will run the Python updater
-                            subprocess.Popen(batch_script, shell=True, close_fds=True)
+                            # Use Python to run the updater script
+                            subprocess.Popen([sys.executable, updater_script], shell=True, close_fds=True)
                             self.exit_app()
             
             status_check_timer.timeout.connect(check_download_status)
