@@ -82,10 +82,6 @@ def build_with_pyinstaller():
             "--hidden-import", "xml.parsers.expat",
             "--hidden-import", "pkg_resources",
             "--hidden-import", "plistlib",
-            "--hidden-import", "PyQt5",
-            "--hidden-import", "PyQt5.QtCore",
-            "--hidden-import", "PyQt5.QtGui",
-            "--hidden-import", "PyQt5.QtWidgets",
             "workday_timer/main.py"
         ]
         

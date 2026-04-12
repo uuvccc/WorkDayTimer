@@ -1,6 +1,6 @@
 # WorkdayTimer
 
-[!\[Project Status: Active\](https://www.repostatus.org/badges/latest/active.svg null)](https://www.repostatus.org/#active) [!\[Python 3.6+\](https://img.shields.io/badge/python-3.6+-blue.svg null)](https://www.python.org/downloads/) [!\[License: MIT\](https://img.shields.io/badge/License-MIT-yellow.svg null)](https://opensource.org/licenses/MIT) [!\[PRs Welcome\](https://img.shields.io/badge/PRs-welcome-brightgreen.svg null)](https://github.com/wasd845/WorkDayTimer/pulls) [!\[GitHub Actions CI\](https://github.com/wasd845/WorkDayTimer/workflows/Python%20application/badge.svg null)](https://github.com/wasd845/WorkDayTimer/actions) [!\[GitHub release\](https://img.shields.io/github/v/release/wasd845/WorkDayTimer null)](https://github.com/wasd845/WorkDayTimer/releases) [!\[GitHub all releases\](https://img.shields.io/github/downloads/wasd845/WorkDayTimer/total null)](https://github.com/wasd845/WorkDayTimer/releases) [!\[GitHub issues\](https://img.shields.io/github/issues/wasd845/WorkDayTimer null)](https://github.com/wasd845/WorkDayTimer/issues)
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/wasd845/WorkDayTimer/pulls) [![GitHub Actions CI](https://github.com/wasd845/WorkDayTimer/workflows/Python%20application/badge.svg)](https://github.com/wasd845/WorkDayTimer/actions) [![GitHub release](https://img.shields.io/github/v/release/wasd845/WorkDayTimer)](https://github.com/wasd845/WorkDayTimer/releases) [![GitHub all releases](https://img.shields.io/github/downloads/wasd845/WorkDayTimer/total)](https://github.com/wasd845/WorkDayTimer/releases) [![GitHub issues](https://img.shields.io/github/issues/wasd845/WorkDayTimer)](https://github.com/wasd845/WorkDayTimer/issues)
 
 A desktop timer application for tracking work hours with reminder functionality.
 
@@ -47,21 +47,32 @@ WorkDayTimer/
 ## Installation
 
 1. Clone the repository:
-
 ```bash
 git clone https://github.com/yourusername/WorkDayTimer.git
 cd WorkDayTimer
 ```
 
-1. Install dependencies:
-
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Usage
 
-You can run 
+You can run the application in three ways:
+
+### Option 1: Run Python Script
+
+```bash
+python -m workday_timer.main
+```
+
+### Option 2: Run as Package
+
+```bash
+pip install -e .
+workday_timer
+```
 
 ### Option 3: Run Executable
 
@@ -92,16 +103,25 @@ After starting the application:
 To build the application yourself:
 
 1. Run the build script:
-
 ```bash
 python build/build.py
 ```
 
-1. The executable will be generated in the `dist` directory and copied to the project root
+2. The executable will be generated in the `dist` directory and copied to the project root
 
-### N
+### Nuitka Build
 
-Or
+The project also supports building with Nuitka for better performance:
+
+```bash
+python build_nuitka.py
+```
+
+Or directly using Nuitka command:
+
+```bash
+python -m nuitka --standalone --windows-disable-console --windows-icon-from-ico=images/icon.ico --include-package=PyQt5 --include-package=keyboard --include-package=PIL --include-package=requests --include-package=numpy --include-module=xml.parsers.expat --include-module=plistlib --include-module=pkg_resources --include-data-dir=images=images --include-data-file=start_time.txt=start_time.txt --include-data-file=flexible_mode.txt=flexible_mode.txt --follow-imports --remove-output workday_timer.py
+```
 
 ## Contributing
 
