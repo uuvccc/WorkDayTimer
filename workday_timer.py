@@ -767,24 +767,53 @@ class WorkdayTimer(QWidget):
                             updater_script = os.path.join(os.path.dirname(local_exe_path), "updater.bat")
                             with open(updater_script, "w") as f:
                                 f.write(f"""@echo off
- timeout /t 2 /nobreak >nul
- taskkill /f /im WorkDayTimer.exe 2>nul
- del "{local_exe_path}"
- move "{temp_exe_path}" "{local_exe_path}"
+:: 检查是否以管理员权限运行
+NET SESSION >NUL 2>&1
+IF %ERRORLEVEL% NEQ 0 (
+    :: 请求管理员权限
+    echo 请求管理员权限...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
 
- :: Set the PATH to include system and user DLL directories
- set "PATH=%PATH%;C:\\Windows\\System32;C:\\Windows\\SysWOW64"
+:: 确保在正确的目录中运行
+cd /d "{os.path.dirname(local_exe_path)}"
 
- cd /d "{os.path.dirname(local_exe_path)}"
- start "" "{os.path.basename(local_exe_path)}"
- del "%~f0"
- """)
+:: 等待应用程序完全退出
+timeout /t 3 /nobreak >nul
+
+:: 终止可能仍在运行的进程
+taskkill /f /im WorkDayTimer.exe 2>nul
+
+:: 确保文件操作权限
+icacls "{local_exe_path}" /grant "%USERNAME%":F 2>nul
+
+:: 替换文件
+del "{local_exe_path}" 2>nul
+move "{temp_exe_path}" "{local_exe_path}"
+
+:: 设置环境变量
+set "PATH=%PATH%;C:\Windows\System32;C:\Windows\SysWOW64"
+set "TEMP={os.environ.get('TEMP', '')}"
+set "TMP={os.environ.get('TMP', '')}"
+
+:: 确保新文件有正确的权限
+icacls "{local_exe_path}" /grant "%USERNAME%":F 2>nul
+
+:: 启动应用程序，明确指定工作目录
+start "" /D "{os.path.dirname(local_exe_path)}" "{os.path.basename(local_exe_path)}"
+
+:: 清理批处理文件
+del "%~f0"
+""")
                             
                             # Launch the updater script and exit the current application
                             import subprocess
                             # Set environment variables to help find DLLs
                             env = os.environ.copy()
                             env['PATH'] = env.get('PATH', '') + r';C:\Windows\System32;C:\Windows\SysWOW64'
+                            env['TEMP'] = os.environ.get('TEMP', '')
+                            env['TMP'] = os.environ.get('TMP', '')
                             subprocess.Popen(updater_script, shell=True, env=env)
                             self.exit_app()
             
