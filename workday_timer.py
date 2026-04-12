@@ -804,7 +804,7 @@ class WorkdayTimer(QWidget):
  set TMP=%TMP%
 
  :: Start the new executable with a fresh environment
- start "" "{local_exe_path}"
+ start "" "{os.path.basename(local_exe_path)}"
 
  :: Wait a bit before deleting the script
  timeout /t 2 /nobreak >nul
