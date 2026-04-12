@@ -41,7 +41,7 @@ def install_dependencies():
 # Clean build directories
 def clean_build():
     print_color("Cleaning build directories...", 'blue')
-    # Clean dist directory
+    # Only clean dist directory, keep build directory configuration files
     build_dirs = ['dist']
     for dir_name in build_dirs:
         dir_path = os.path.join(base_dir, dir_name)
@@ -52,16 +52,18 @@ def clean_build():
             except Exception as e:
                 print_color(f"Failed to clean {dir_name} directory: {e}", 'red')
     
-    # Clean pycache directories everywhere
-    for root, dirs, files in os.walk(base_dir):
-        for dir_name in dirs:
-            if dir_name == '__pycache__':
-                dir_path = os.path.join(root, dir_name)
+    # Clean temporary files in build directory, but keep configuration files
+    build_dir = os.path.join(base_dir, 'build')
+    if os.path.exists(build_dir):
+        for item in os.listdir(build_dir):
+            item_path = os.path.join(build_dir, item)
+            # Only clean pycache directory, keep all other files and directories
+            if os.path.isdir(item_path) and item == '__pycache__':
                 try:
-                    shutil.rmtree(dir_path)
-                    print_color(f"Cleaned {dir_path} directory successfully", 'green')
+                    shutil.rmtree(item_path)
+                    print_color(f"Cleaned {item} directory successfully", 'green')
                 except Exception as e:
-                    print_color(f"Failed to clean {dir_path} directory: {e}", 'red')
+                    print_color(f"Failed to clean {item} directory: {e}", 'red')
 
 # Build with PyInstaller
 def build_with_pyinstaller():
@@ -84,16 +86,10 @@ def build_with_pyinstaller():
             "--hidden-import", "PyQt5.QtCore",
             "--hidden-import", "PyQt5.QtGui",
             "--hidden-import", "PyQt5.QtWidgets",
-            "--hidden-import", "keyboard",
-            "--hidden-import", "PIL",
-            "--hidden-import", "requests",
-            "--hidden-import", "numpy",
-            "--hidden-import", "pywin32",
             "workday_timer/main.py"
         ]
         
         # Execute build command
-        print_color(f"Running command: {' '.join(cmd)}", 'blue')
         result = subprocess.run(cmd, cwd=base_dir, capture_output=True, text=True)
         
         if result.returncode == 0:
@@ -103,26 +99,12 @@ def build_with_pyinstaller():
             if os.path.exists(dist_exe):
                 shutil.copy2(dist_exe, os.path.join(base_dir, 'WorkDayTimer.exe'))
                 print_color("Executable copied to root directory", 'green')
-                # Verify the executable exists
-                if os.path.exists(os.path.join(base_dir, 'WorkDayTimer.exe')):
-                    print_color(f"Executable size: {os.path.getsize(os.path.join(base_dir, 'WorkDayTimer.exe')) / (1024 * 1024):.2f} MB", 'green')
-                else:
-                    print_color("Executable not found after copy", 'red')
             else:
                 print_color("Executable not generated", 'red')
-                # List contents of dist directory
-                dist_dir = os.path.join(base_dir, 'dist')
-                if os.path.exists(dist_dir):
-                    print_color(f"Contents of dist directory: {os.listdir(dist_dir)}", 'blue')
-                else:
-                    print_color("dist directory does not exist", 'red')
         else:
             print_color(f"PyInstaller build failed: {result.stderr}", 'red')
-            print_color(f"PyInstaller stdout: {result.stdout}", 'blue')
     except Exception as e:
         print_color(f"PyInstaller build error: {e}", 'red')
-        import traceback
-        print_color(f"Traceback: {traceback.format_exc()}", 'red')
 
 # Build with cx-Freeze
 def build_with_cx_freeze():
