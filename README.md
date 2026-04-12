@@ -109,20 +109,6 @@ python build/build.py
 
 2. The executable will be generated in the `dist` directory and copied to the project root
 
-### Nuitka Build
-
-The project also supports building with Nuitka for better performance:
-
-```bash
-python build_nuitka.py
-```
-
-Or directly using Nuitka command:
-
-```bash
-python -m nuitka --standalone --windows-disable-console --windows-icon-from-ico=images/icon.ico --include-package=PyQt5 --include-package=keyboard --include-package=PIL --include-package=requests --include-package=numpy --include-module=xml.parsers.expat --include-module=plistlib --include-module=pkg_resources --include-data-dir=images=images --include-data-file=start_time.txt=start_time.txt --include-data-file=flexible_mode.txt=flexible_mode.txt --follow-imports --remove-output workday_timer.py
-```
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

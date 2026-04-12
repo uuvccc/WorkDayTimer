@@ -9,7 +9,6 @@ pywin32>=300
 # 打包依赖
 PyInstaller>=5.0.0
 cx-Freeze>=6.11.0
-Nuitka>=2.8.10
 
 # 开发依赖
 pytest>=7.0.0
