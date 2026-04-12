@@ -5,11 +5,11 @@ import sys
 import subprocess
 import shutil
 
-# Base directory
+# 基础目录
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, base_dir)
 
-# Color output
+# 颜色输出
 def print_color(text, color='green'):
     colors = {
         'green': '\033[92m',
@@ -21,56 +21,53 @@ def print_color(text, color='green'):
     try:
         print(f"{colors.get(color, 'reset')}{text}{colors['reset']}")
     except UnicodeEncodeError:
-        # Handle encoding issues on Windows
-        # Remove color codes and print
-        import re
-        plain_text = re.sub(r'\033\[[0-9;]+m', '', text)
-        print(plain_text)
+        # 处理Windows环境下的编码问题
+        print(text)
 
-# Install dependencies
+# 安装依赖
 def install_dependencies():
-    print_color("Installing build dependencies...", 'blue')
+    print_color("安装打包依赖...", 'blue')
     try:
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller", "cx-Freeze"], 
                       check=True, capture_output=True, text=True)
-        print_color("Dependencies installed successfully", 'green')
+        print_color("依赖安装成功", 'green')
     except subprocess.CalledProcessError as e:
-        print_color(f"Failed to install dependencies: {e.stderr}", 'red')
+        print_color(f"依赖安装失败: {e.stderr}", 'red')
         sys.exit(1)
 
-# Clean build directories
+# 清理构建目录
 def clean_build():
-    print_color("Cleaning build directories...", 'blue')
-    # Only clean dist directory, keep build directory configuration files
+    print_color("清理构建目录...", 'blue')
+    # 只清理dist目录，保留build目录中的配置文件
     build_dirs = ['dist']
     for dir_name in build_dirs:
         dir_path = os.path.join(base_dir, dir_name)
         if os.path.exists(dir_path):
             try:
                 shutil.rmtree(dir_path)
-                print_color(f"Cleaned {dir_name} directory successfully", 'green')
+                print_color(f"清理 {dir_name} 目录成功", 'green')
             except Exception as e:
-                print_color(f"Failed to clean {dir_name} directory: {e}", 'red')
+                print_color(f"清理 {dir_name} 目录失败: {e}", 'red')
     
-    # Clean temporary files in build directory, but keep configuration files
+    # 清理build目录中的临时文件，但保留配置文件
     build_dir = os.path.join(base_dir, 'build')
     if os.path.exists(build_dir):
         for item in os.listdir(build_dir):
             item_path = os.path.join(build_dir, item)
-            # Only clean pycache directory, keep all other files and directories
+            # 只清理pycache目录，保留其他所有文件和目录
             if os.path.isdir(item_path) and item == '__pycache__':
                 try:
                     shutil.rmtree(item_path)
-                    print_color(f"Cleaned {item} directory successfully", 'green')
+                    print_color(f"清理 {item} 目录成功", 'green')
                 except Exception as e:
-                    print_color(f"Failed to clean {item} directory: {e}", 'red')
+                    print_color(f"清理 {item} 目录失败: {e}", 'red')
 
-# Build with PyInstaller
+# 使用PyInstaller打包
 def build_with_pyinstaller():
-    print_color("Building with PyInstaller...", 'blue')
-    # Use command line parameters directly, not spec file
+    print_color("使用 PyInstaller 打包...", 'blue')
+    # 直接使用命令行参数，不使用spec文件
     try:
-        # Build command parameters
+        # 构建命令参数
         cmd = [
             sys.executable, "-m", "PyInstaller",
             "--onefile",
@@ -85,61 +82,61 @@ def build_with_pyinstaller():
             "workday_timer/main.py"
         ]
         
-        # Execute build command
+        # 执行打包命令
         result = subprocess.run(cmd, cwd=base_dir, capture_output=True, text=True)
         
         if result.returncode == 0:
-            print_color("PyInstaller build successful", 'green')
-            # Copy executable to root directory
+            print_color("PyInstaller 打包成功", 'green')
+            # 复制可执行文件到根目录
             dist_exe = os.path.join(base_dir, 'dist', 'WorkDayTimer.exe')
             if os.path.exists(dist_exe):
                 shutil.copy2(dist_exe, os.path.join(base_dir, 'WorkDayTimer.exe'))
-                print_color("Executable copied to root directory", 'green')
+                print_color("可执行文件已复制到根目录", 'green')
             else:
-                print_color("Executable not generated", 'red')
+                print_color("可执行文件未生成", 'red')
         else:
-            print_color(f"PyInstaller build failed: {result.stderr}", 'red')
+            print_color(f"PyInstaller 打包失败: {result.stderr}", 'red')
     except Exception as e:
-        print_color(f"PyInstaller build error: {e}", 'red')
+        print_color(f"PyInstaller 打包出错: {e}", 'red')
 
-# Build with cx-Freeze
+# 使用cx-Freeze打包
 def build_with_cx_freeze():
-    print_color("Building with cx-Freeze...", 'blue')
+    print_color("使用 cx-Freeze 打包...", 'blue')
     setup_file = os.path.join(base_dir, 'build', 'setup_cx.py')
     try:
         result = subprocess.run([sys.executable, setup_file, "build_exe"], 
                               cwd=base_dir, capture_output=True, text=True)
         if result.returncode == 0:
-            print_color("cx-Freeze build successful", 'green')
-            # Copy executable to root directory
+            print_color("cx-Freeze 打包成功", 'green')
+            # 复制可执行文件到根目录
             build_exe_dir = os.path.join(base_dir, 'build', 'exe.win-amd64-3.13')
             if os.path.exists(build_exe_dir):
                 cx_exe = os.path.join(build_exe_dir, 'WorkDayTimer_cx.exe')
                 if os.path.exists(cx_exe):
                     shutil.copy2(cx_exe, os.path.join(base_dir, 'WorkDayTimer_cx.exe'))
-                    print_color("cx-Freeze executable copied to root directory", 'green')
+                    print_color("cx-Freeze 可执行文件已复制到根目录", 'green')
         else:
-            print_color(f"cx-Freeze build failed: {result.stderr}", 'red')
+            print_color(f"cx-Freeze 打包失败: {result.stderr}", 'red')
     except Exception as e:
-        print_color(f"cx-Freeze build error: {e}", 'red')
+        print_color(f"cx-Freeze 打包出错: {e}", 'red')
 
-# Main function
+# 主函数
 def main():
-    print_color("WorkDayTimer Build Script", 'yellow')
+    print_color("WorkDayTimer 打包脚本", 'yellow')
     print_color("=" * 50, 'yellow')
     
-    # Clean build directories
+    # 清理构建目录
     clean_build()
     
-    # Install dependencies
+    # 安装依赖
     install_dependencies()
     
-    # Non-interactive mode, default to PyInstaller build
-    print_color("Using default build method: PyInstaller", 'blue')
+    # 非交互式模式，默认使用 PyInstaller 打包
+    print_color("使用默认打包方式: PyInstaller", 'blue')
     build_with_pyinstaller()
     
     print_color("=" * 50, 'yellow')
-    print_color("Build completed!", 'green')
+    print_color("打包完成！", 'green')
 
 if __name__ == '__main__':
     main()
