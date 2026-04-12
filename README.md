@@ -12,37 +12,12 @@ A desktop timer application for tracking work hours with reminder functionality.
 - System tray integration
 - Customizable desktop timer display
 - Flexible/Fixed time mode support
-- Custom timer functionality
-- Automatic updates
-- Keyboard shortcut support
 
 ## Requirements
 
 - Python 3.6 or higher
 - PyQt5 >= 5.15.0
 - Other dependencies listed in requirements.txt
-
-## Project Structure
-
-```
-WorkDayTimer/
-├── workday_timer/          # Main application package
-│   ├── config/            # Configuration module
-│   ├── core/              # Core functionality
-│   ├── gui/               # GUI components
-│   ├── updater/           # Update functionality
-│   ├── utils/             # Utility functions
-│   ├── tests/             # Unit tests
-│   └── main.py            # Application entry point
-├── build/                 # Build configuration
-│   ├── build.py           # Build script
-│   └── simple.spec        # PyInstaller spec file
-├── images/                # Image resources
-├── hooks/                 # PyInstaller hooks
-├── requirements.txt       # Dependencies
-├── setup.py               # Package setup
-└── README.md              # This file
-```
 
 ## Installation
 
@@ -59,28 +34,21 @@ pip install -r requirements.txt
 
 ## Usage
 
-You can run the application in three ways:
+You can run the application in two ways:
 
 ### Option 1: Run Python Script
 
 ```bash
-python -m workday_timer.main
+python workday_timer.py
 ```
 
-### Option 2: Run as Package
-
-```bash
-pip install -e .
-workday_timer
-```
-
-### Option 3: Run Executable
+### Option 2: Run Executable
 
 You can also run the pre-built executable file directly:
 
 1. Download the latest release from the releases page
 2. Extract the zip file
-3. Run `WorkDayTimer.exe`
+3. Run `workday_timer.exe`
 
 After starting the application:
 
@@ -94,20 +62,9 @@ After starting the application:
 
 ## Configuration
 
-- **Flexible Mode**: You can toggle flexible mode from the system tray menu
-- **Image paths**: Customize timer images in the `images/timers` directory
-- **Window position and size**: Adjust in `workday_timer/config/__init__.py`
-
-## Building
-
-To build the application yourself:
-
-1. Run the build script:
-```bash
-python build/build.py
-```
-
-2. The executable will be generated in the `dist` directory and copied to the project root
+- `isFLEXIBLE`: Set to `True` for flexible work hours, `False` for fixed 9:00 AM start time
+- Image paths can be customized in the code for different timer appearances
+- Window position and size can be adjusted in the initialization parameters
 
 ## Contributing
 
