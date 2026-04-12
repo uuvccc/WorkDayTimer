@@ -19,7 +19,6 @@ class WorkdayTimer(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.init_ui()
 
         current_time = datetime.datetime.now()
         last_start_time = get_last_start_time()
@@ -58,8 +57,11 @@ class WorkdayTimer(QWidget):
 
         self.reminder_timer2 = QTimer()
         self.reminder_timer2.timeout.connect(self.show_job_record_warning)
-        self.reminder_timer.setSingleShot(True) # Only run once
-        self.reminder_timer2.start(int(delay2 * 1000)) # 8.5 hours in milliseconds
+        self.reminder_timer2.setSingleShot(True) # Only run once
+        self.reminder_timer2.start(int(delay2 * 1000)) # 7.5 hours in milliseconds
+
+        # Now initialize UI after all timers are set up
+        self.init_ui()
 
         if is_first_start:
             self.show_checkin_reminder()
