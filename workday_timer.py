@@ -1,34 +1,8 @@
-# 最优先模拟所有可能导致 pyexpat 错误的模块
-# 这将在 PyInstaller 的运行时钩子执行前生效
-import sys
-
-# 首先创建一个基础模拟类
-class MockModule:
-    def __getattr__(self, name):
-        return MockModule()
-    def __call__(self, *args, **kwargs):
-        return MockModule()
-
-# 模拟 xml 模块及其子模块
-sys.modules['xml'] = MockModule()
-sys.modules['xml.parsers'] = MockModule()
-sys.modules['xml.parsers.expat'] = MockModule()
-
-# 模拟 plistlib 模块
-sys.modules['plistlib'] = MockModule()
-
-# 模拟 pkg_resources 模块
-sys.modules['pkg_resources'] = MockModule()
-sys.modules['pkg_resources'].DistributionNotFound = Exception
-sys.modules['pkg_resources'].VersionConflict = Exception
-sys.modules['pkg_resources'].get_distribution = lambda dist: MockModule()
-sys.modules['pkg_resources'].get_distribution.version = lambda: '1.0.0'
-
-# 现在导入其他模块
 import datetime
 import logging
 import os
 import random
+import sys
 import requests  # Add import for HTTP requests
 import win32gui
 import win32con
