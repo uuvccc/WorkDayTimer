@@ -18,11 +18,7 @@ def print_color(text, color='green'):
         'blue': '\033[94m',
         'reset': '\033[0m'
     }
-    try:
-        print(f"{colors.get(color, 'reset')}{text}{colors['reset']}")
-    except UnicodeEncodeError:
-        # 处理Windows环境下的编码问题
-        print(text)
+    print(f"{colors.get(color, 'reset')}{text}{colors['reset']}")
 
 # 安装依赖
 def install_dependencies():
