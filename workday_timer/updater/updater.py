@@ -20,12 +20,12 @@ class UpdateConfig:
         self.check_interval = 24 * 60 * 60  # 默认每24小时检查一次
         self.auto_check = True  # 默认自动检查更新
         self.auto_download = False  # 默认不自动下载
-        self.update_history_file = os.path.join(config.data_dir, "update_history.json")
+        self.update_history_file = os.path.join(config.base_dir, "update_history.json")
         self._load_config()
     
     def _load_config(self):
         """加载更新配置"""
-        config_file = os.path.join(config.data_dir, "update_config.json")
+        config_file = os.path.join(config.base_dir, "update_config.json")
         if os.path.exists(config_file):
             try:
                 with open(config_file, 'r', encoding='utf-8') as f:
@@ -38,7 +38,7 @@ class UpdateConfig:
     
     def save_config(self):
         """保存更新配置"""
-        config_file = os.path.join(config.data_dir, "update_config.json")
+        config_file = os.path.join(config.base_dir, "update_config.json")
         try:
             os.makedirs(os.path.dirname(config_file), exist_ok=True)
             with open(config_file, 'w', encoding='utf-8') as f:
@@ -490,7 +490,7 @@ class Updater:
             spec = importlib.util.spec_from_file_location("setup", setup_path)
             setup = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(setup)
-            return setup.setup.version
+            return setup.__version__
         except Exception as e:
             logging.error(f"获取当前版本失败: {e}")
             return "0.0.0"
