@@ -81,20 +81,26 @@ class UpdateChecker:
     """更新检查器"""
     def __init__(self, current_version):
         self.current_version = current_version
-        # 直接使用最新版本的下载链接
-        self.latest_download_url = "https://github.com/uuvccc/WorkDayTimer/releases/latest/download/WorkDayTimer.exe"
+        self.api_url = "https://api.github.com/repos/uuvccc/WorkDayTimer/releases/latest"
     
     def check(self):
         """检查更新"""
         try:
-            logging.info("正在检查更新...")
-            # 直接返回最新版本的下载链接，不使用GitHub API
-            return {
-                'available': True,
-                'version': 'latest',
-                'download_url': self.latest_download_url,
-                'release_notes': '最新版本'
-            }
+            response = requests.get(self.api_url, timeout=10)
+            if response.status_code == 200:
+                release_data = response.json()
+                latest_version = release_data['tag_name'].lstrip('v')
+                download_url = release_data['assets'][0]['browser_download_url'] if release_data.get('assets') else None
+                release_notes = release_data.get('body', '')
+                
+                if self._is_newer_version(latest_version, self.current_version):
+                    return {
+                        'available': True,
+                        'version': latest_version,
+                        'download_url': download_url,
+                        'release_notes': release_notes
+                    }
+            return {'available': False}
         except Exception as e:
             logging.error(f"检查更新失败: {e}")
             return {'available': False, 'error': str(e)}
@@ -102,14 +108,6 @@ class UpdateChecker:
     def _is_newer_version(self, latest, current):
         """比较版本号"""
         try:
-            # 如果最新版本是 'latest'，直接返回 True
-            if latest == 'latest':
-                return True
-            
-            # 清理版本号，移除非数字和点的字符
-            latest = ''.join(c for c in latest if c.isdigit() or c == '.')
-            current = ''.join(c for c in current if c.isdigit() or c == '.')
-            
             latest_parts = list(map(int, latest.split('.')))
             current_parts = list(map(int, current.split('.')))
             
@@ -609,22 +607,6 @@ class Updater:
         """显示更新历史界面"""
         history_ui = UpdateHistoryUI(self.config.update_history_file, self.app)
         history_ui.exec_()
-    
-    def force_update(self):
-        """强制更新到最新版本，不检查当前版本"""
-        logging.info("强制更新...")
-        result = self.checker.check()
-        
-        logging.info(f"检查更新结果: {result}")
-        
-        if 'download_url' in result and result['download_url']:
-            # 直接下载并安装，不显示通知
-            self.download_and_install(result)
-        else:
-            error_msg = "无法获取更新信息。"
-            if 'error' in result:
-                error_msg += f"\n错误详情: {result['error']}"
-            QMessageBox.critical(self.app, "检查更新", error_msg)
 
 
 def check_for_updates(app):
@@ -634,10 +616,7 @@ def check_for_updates(app):
         updater.check_for_updates()
 
 
-def update_application(app, force=False):
+def update_application(app):
     """更新应用程序的便捷函数"""
     updater = Updater(app)
-    if force:
-        updater.force_update()
-    else:
-        updater.check_for_updates(show_no_update=True)
+    updater.check_for_updates(show_no_update=True)
