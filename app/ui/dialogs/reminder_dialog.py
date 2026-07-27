@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QMessageBox, QPushButton, QFont
+from PyQt5.QtWidgets import QMessageBox, QPushButton
+from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 
 class ReminderDialog:
