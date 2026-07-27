@@ -1,0 +1,3 @@
+checkin_reminder=True
+job_record_reminder=True
+checkout_reminder=True

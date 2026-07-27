@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="workday_timer",
+    name="minitools",
     version="1.0.0",
     packages=find_packages(),
     install_requires=[
@@ -13,11 +13,11 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'workday_timer=workday_timer:main',
+            'minitools=main:main',
         ],
     },
     author="Your Name",
-    description="A desktop timer application for tracking work hours",
-    keywords="timer, desktop, work",
+    description="A desktop utility application",
+    keywords="utility, desktop, tools",
     python_requires=">=3.6",
 )

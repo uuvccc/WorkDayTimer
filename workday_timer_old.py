@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushBut
 from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
     WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
     DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT,
-    FLEXIBLE_MODE_FILE)
+    FLEXIBLE_MODE_FILE, reminder_settings, save_reminder_settings)
 
 # Configure logging
 # Get the directory where the script or executable is located
@@ -88,20 +88,22 @@ class WorkdayTimer(QWidget):
         delay = (self.timer_expiry - datetime.datetime.now()).total_seconds()
         self.timer_type = delay
 
-        self.reminder_timer = QTimer(self)
-        self.reminder_timer.timeout.connect(self.show_reminder)
-        self.reminder_timer.setSingleShot(True) # Only run once
-        self.reminder_timer.start(int(delay * 1000)) # 8.5 hours in milliseconds
+        if reminder_settings.get('checkout_reminder', True):
+            self.reminder_timer = QTimer(self)
+            self.reminder_timer.timeout.connect(self.show_reminder)
+            self.reminder_timer.setSingleShot(True)
+            self.reminder_timer.start(int(delay * 1000))
 
         timer_expiry2 = last_start_time + datetime.timedelta(hours=7.5)
         delay2 = (timer_expiry2 - datetime.datetime.now()).total_seconds()
 
-        self.reminder_timer2 = QTimer()
-        self.reminder_timer2.timeout.connect(self.show_job_record_warning)
-        self.reminder_timer.setSingleShot(True) # Only run once
-        self.reminder_timer2.start(int(delay2 * 1000)) # 8.5 hours in milliseconds
+        if reminder_settings.get('job_record_reminder', True):
+            self.reminder_timer2 = QTimer()
+            self.reminder_timer2.timeout.connect(self.show_job_record_warning)
+            self.reminder_timer2.setSingleShot(True)
+            self.reminder_timer2.start(int(delay2 * 1000))
 
-        if is_first_start:
+        if is_first_start and reminder_settings.get('checkin_reminder', True):
             self.show_checkin_reminder()
 
         # Check for updates in a separate thread
@@ -137,6 +139,10 @@ class WorkdayTimer(QWidget):
         custom_timer_action = QAction("Custom Timer", self)
         custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
         self.menu.addAction(custom_timer_action)
+
+        settings_action = QAction("Settings", self)
+        settings_action.triggered.connect(self.show_settings_dialog)
+        self.menu.addAction(settings_action)
 
         # Add an update action to the tray menu
         update_action = QAction("Update Application", self)
@@ -209,7 +215,9 @@ class WorkdayTimer(QWidget):
 
     def update_timer_display(self):
         # Display image
-        seconds = self.reminder_timer.remainingTime() / 1000.0
+        seconds = 0
+        if hasattr(self, 'reminder_timer') and self.reminder_timer and self.reminder_timer.isActive():
+            seconds = self.reminder_timer.remainingTime() / 1000.0
 
         # Add display for custom timer remaining time
         custom_timer_seconds = 0
@@ -461,6 +469,52 @@ class WorkdayTimer(QWidget):
 
         dialog.setLayout(layout)
         dialog.exec_()
+
+    def show_settings_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Settings")
+        dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
+        dialog.resize(300, 250)
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("Reminder Settings"))
+
+        self.checkin_checkbox = QPushButton(f"Check-in Reminder: {'On' if reminder_settings['checkin_reminder'] else 'Off'}")
+        self.checkin_checkbox.setCheckable(True)
+        self.checkin_checkbox.setChecked(reminder_settings['checkin_reminder'])
+        self.checkin_checkbox.clicked.connect(lambda checked: self.toggle_reminder_setting('checkin_reminder', checked, self.checkin_checkbox))
+        layout.addWidget(self.checkin_checkbox)
+
+        self.job_record_checkbox = QPushButton(f"Work Record Reminder: {'On' if reminder_settings['job_record_reminder'] else 'Off'}")
+        self.job_record_checkbox.setCheckable(True)
+        self.job_record_checkbox.setChecked(reminder_settings['job_record_reminder'])
+        self.job_record_checkbox.clicked.connect(lambda checked: self.toggle_reminder_setting('job_record_reminder', checked, self.job_record_checkbox))
+        layout.addWidget(self.job_record_checkbox)
+
+        self.checkout_checkbox = QPushButton(f"Check-out Reminder: {'On' if reminder_settings['checkout_reminder'] else 'Off'}")
+        self.checkout_checkbox.setCheckable(True)
+        self.checkout_checkbox.setChecked(reminder_settings['checkout_reminder'])
+        self.checkout_checkbox.clicked.connect(lambda checked: self.toggle_reminder_setting('checkout_reminder', checked, self.checkout_checkbox))
+        layout.addWidget(self.checkout_checkbox)
+
+        button_box = QHBoxLayout()
+        ok_button = QPushButton("OK")
+        cancel_button = QPushButton("Cancel")
+
+        ok_button.clicked.connect(dialog.accept)
+        cancel_button.clicked.connect(dialog.reject)
+
+        button_box.addWidget(ok_button)
+        button_box.addWidget(cancel_button)
+        layout.addLayout(button_box)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def toggle_reminder_setting(self, setting_key, is_checked, button):
+        reminder_settings[setting_key] = is_checked
+        button.setText(f"{button.text().split(':')[0]}: {'On' if is_checked else 'Off'}")
+        save_reminder_settings(reminder_settings)
 
     def add_minutes(self, input_field, minutes):
         try:

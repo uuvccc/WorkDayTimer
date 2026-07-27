@@ -1,0 +1,14 @@
+[MASTER]
+ignore=workday_timer_old.py
+disable=missing-docstring,too-few-public-methods
+
+[MESSAGES CONTROL]
+disable=
+    C0114,
+    C0115,
+    C0116,
+    R0903,
+    W0613,
+
+[FORMAT]
+max-line-length=120
