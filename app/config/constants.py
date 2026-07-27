@@ -20,8 +20,6 @@ IMAGE_DIRECTORY = os.path.join(BASE_DIR, "images", "timers")
 os.makedirs(os.path.dirname(DEFAULT_TIMER_IMAGE), exist_ok=True)
 os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
-WINDOW_POSITION_X = 1650
-WINDOW_POSITION_Y = 30
 WINDOW_SIZE_WIDTH = 200
 WINDOW_SIZE_HEIGHT = 200
 

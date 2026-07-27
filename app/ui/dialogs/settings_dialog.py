@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox
 from PyQt5.QtCore import Qt
 from app.config.manager import config_manager
+from app.services import system_service
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -35,6 +36,14 @@ class SettingsDialog(QDialog):
         self.checkout_button.clicked.connect(lambda checked: self._toggle_setting('checkout_reminder', checked))
         layout.addWidget(self.checkout_button)
 
+        layout.addWidget(QLabel("System Settings"))
+
+        self.startup_button = QPushButton(f"Run on Startup: {'On' if system_service.is_run_on_startup() else 'Off'}")
+        self.startup_button.setCheckable(True)
+        self.startup_button.setChecked(system_service.is_run_on_startup())
+        self.startup_button.clicked.connect(self._toggle_startup)
+        layout.addWidget(self.startup_button)
+
         button_box = QHBoxLayout()
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("Cancel")
@@ -56,3 +65,11 @@ class SettingsDialog(QDialog):
             self.job_record_button.setText(f"Work Record Reminder: {'On' if is_checked else 'Off'}")
         elif key == 'checkout_reminder':
             self.checkout_button.setText(f"Check-out Reminder: {'On' if is_checked else 'Off'}")
+
+    def _toggle_startup(self, is_checked):
+        success, message = system_service.toggle_run_on_startup(is_checked)
+        if success:
+            self.startup_button.setText(f"Run on Startup: {'On' if is_checked else 'Off'}")
+        else:
+            QMessageBox.critical(self, "Error", message)
+            self.startup_button.setChecked(not is_checked)

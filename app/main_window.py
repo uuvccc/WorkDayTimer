@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog,
 
 from app.config.constants import (
     ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
-    WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
+    WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
 )
 from app.config.manager import config_manager
 from app.services import time_service, system_service, update_service, keyboard_service
@@ -45,8 +45,11 @@ class MainWindow(QWidget):
         self.time_label.setAlignment(Qt.AlignCenter)
 
         self.setParent(None)
-        self.setGeometry(WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
+        screen_rect = QApplication.primaryScreen().availableGeometry()
+        x = screen_rect.right() - WINDOW_SIZE_WIDTH - 10
+        y = screen_rect.top() + 10
+        self.setGeometry(x, y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.show()
 
@@ -164,6 +167,7 @@ class MainWindow(QWidget):
     def show_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.exec_()
+        self.tray_menu.set_run_on_startup(system_service.is_run_on_startup())
 
     def start_custom_countdown(self, minutes):
         if hasattr(self, 'custom_timer'):
