@@ -1,16 +1,23 @@
 import os
 import sys
 
+
 def get_base_dir():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
 BASE_DIR = get_base_dir()
 
+# 统一配置文件
+SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+
+# 旧配置文件（用于迁移）
+OLD_FLEXIBLE_MODE_FILE = os.path.join(BASE_DIR, "flexible_mode.txt")
+OLD_REMINDER_SETTINGS_FILE = os.path.join(BASE_DIR, "reminder_settings.txt")
+
 START_TIME_FILE = os.path.join(BASE_DIR, "start_time.txt")
-FLEXIBLE_MODE_FILE = os.path.join(BASE_DIR, "flexible_mode.txt")
-REMINDER_SETTINGS_FILE = os.path.join(BASE_DIR, "reminder_settings.txt")
 LOG_FILE = os.path.join(BASE_DIR, "app.log")
 ICON_FILE = os.path.join(BASE_DIR, "images", "icon.png")
 
@@ -31,8 +38,13 @@ DIALOG_SIZE_HEIGHT = 550
 JOB_DIALOG_SIZE_WIDTH = 900
 JOB_DIALOG_SIZE_HEIGHT = 700
 
-DEFAULT_REMINDER_SETTINGS = {
-    'checkin_reminder': True,
-    'job_record_reminder': True,
-    'checkout_reminder': True
+# 默认设置
+DEFAULT_SETTINGS = {
+    "flexible_mode": False,
+    "run_on_startup": False,
+    "reminders": {
+        "checkin_reminder": True,
+        "job_record_reminder": True,
+        "checkout_reminder": True,
+    },
 }

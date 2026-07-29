@@ -1,9 +1,10 @@
 import datetime
+import json
 import logging
 import os
 import random
 import sys
-import requests  # Add import for HTTP requests
+import requests
 import win32gui
 import win32con
 import multiprocessing
@@ -16,7 +17,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QMessageBox, QPushBut
 from config import (START_TIME_FILE, isFLEXIBLE, ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
     WINDOW_POSITION_X, WINDOW_POSITION_Y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT,
     DIALOG_POSITION_X, DIALOG_POSITION_Y, DIALOG_SIZE_WIDTH, DIALOG_SIZE_HEIGHT,
-    FLEXIBLE_MODE_FILE, reminder_settings, save_reminder_settings)
+    FLEXIBLE_MODE_FILE, reminder_settings, save_reminder_settings, SETTINGS_FILE)
 
 # Configure logging
 # Get the directory where the script or executable is located
@@ -332,6 +333,15 @@ class WorkdayTimer(QWidget):
                 f.write(str(is_flexible).lower())
             global isFLEXIBLE
             isFLEXIBLE = is_flexible
+            # 同步到 settings.json
+            try:
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                data["flexible_mode"] = is_flexible
+                with open(SETTINGS_FILE, "w") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
             QMessageBox.information(self, "Mode Changed", "Flexible mode has been " + ("enabled" if is_flexible else "disabled") + ".\nPlease restart the application for the changes to take effect.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save flexible mode: {e}")
@@ -352,17 +362,37 @@ class WorkdayTimer(QWidget):
         except Exception:
             return False
 
+    def _get_startup_command(self):
+        """生成写入注册表的启动命令行"""
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包的 exe
+            return f'"{sys.executable}"'
+        else:
+            # 脚本模式：用 pythonw.exe 避免控制台
+            python_dir = os.path.dirname(sys.executable)
+            pythonw_path = os.path.join(python_dir, "pythonw.exe")
+            if not os.path.exists(pythonw_path):
+                pythonw_path = sys.executable
+            script_path = os.path.abspath(sys.argv[0])
+            return f'"{pythonw_path}" "{script_path}"'
+
     def toggle_run_on_startup(self):
         """Toggle run on startup setting"""
         is_enabled = self.startup_action.isChecked()
         try:
             import winreg
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0,
+                winreg.KEY_WRITE | winreg.KEY_READ,
+            )
             try:
                 if is_enabled:
                     # Add to startup
-                    exe_path = os.path.abspath(sys.argv[0])
-                    winreg.SetValueEx(key, "WorkDayTimer", 0, winreg.REG_SZ, f'"{exe_path}"')
+                    startup_cmd = self._get_startup_command()
+                    winreg.SetValueEx(key, "WorkDayTimer", 0, winreg.REG_SZ, startup_cmd)
+                    logging.info(f"Added to startup: {startup_cmd}")
                     QMessageBox.information(self, "Startup Setting", "Application has been added to startup.")
                 else:
                     # Remove from startup
@@ -375,6 +405,7 @@ class WorkdayTimer(QWidget):
             finally:
                 winreg.CloseKey(key)
         except Exception as e:
+            logging.error(f"Failed to update startup setting: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Failed to update startup setting: {e}")
             self.startup_action.setChecked(not is_enabled)
 
@@ -598,25 +629,48 @@ class WorkdayTimer(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Shutdown failed: {e}")
 
+    def _try_request_with_mirrors(self, base_url, timeout=30, stream=False):
+        """依次尝试直连和代理镜像，返回第一个成功的响应"""
+        mirrors = [
+            "",
+            "https://ghproxy.com/",
+            "https://gh.api.99988866.xyz/",
+            "https://github.moeyy.xyz/",
+            "https://gh-proxy.com/",
+        ]
+        last_error = None
+        for mirror in mirrors:
+            try:
+                url = mirror.rstrip("/") + "/" + base_url if mirror else base_url
+                src = "direct" if not mirror else f"mirror({mirror[:30]}...)"
+                logging.info(f"Trying {src}")
+                resp = requests.get(url, timeout=timeout, stream=stream)
+                if resp.status_code == 200:
+                    return resp
+                last_error = Exception(f"HTTP {resp.status_code}")
+            except Exception as e:
+                logging.warning(f"{src} failed: {e}")
+                last_error = e
+        raise last_error if last_error else Exception("All URLs failed")
+
     def check_for_updates(self):
-        """Check for updates from GitHub."""
+        """Check for updates from GitHub (with mirror fallback)."""
         try:
             # Get current version from setup.py
             import setup
             current_version = setup.setup.version
             
-            # Get latest version from GitHub API
+            # Get latest version from GitHub API (with proxy fallback)
             api_url = "https://api.github.com/repos/uuvccc/WorkDayTimer/releases/latest"
-            response = requests.get(api_url)
+            response = self._try_request_with_mirrors(api_url, timeout=15)
             
-            if response.status_code == 200:
-                release_data = response.json()
-                latest_version = release_data['tag_name'].lstrip('v')
-                
-                # Compare versions
-                if self._is_newer_version(latest_version, current_version):
-                    # Show update notification in the main thread
-                    QApplication.postEvent(self, QEvent(QEvent.User))
+            release_data = response.json()
+            latest_version = release_data['tag_name'].lstrip('v')
+            
+            # Compare versions
+            if self._is_newer_version(latest_version, current_version):
+                # Show update notification in the main thread
+                QApplication.postEvent(self, QEvent(QEvent.User))
         except Exception as e:
             # Silent error handling to avoid disrupting the app
             logging.error(f"Error checking for updates: {e}")
@@ -660,7 +714,7 @@ class WorkdayTimer(QWidget):
         return super().event(event)
 
     def update_application(self):
-        """Download the latest executable from GitHub and replace the current one."""
+        """Download the latest executable from GitHub (with mirror fallback) and replace the current one."""
         try:
             github_url = "https://github.com/uuvccc/WorkDayTimer/releases/latest/download/WorkDayTimer.exe"
             
@@ -725,8 +779,8 @@ class WorkdayTimer(QWidget):
             def download_file():
                 nonlocal download_success, download_error
                 try:
-                    # Set timeout for the request
-                    response = requests.get(github_url, stream=True, timeout=30)
+                    # Try with proxy mirrors for faster download
+                    response = self._try_request_with_mirrors(github_url, timeout=30, stream=True)
                     if response.status_code == 200:
                         total_size = int(response.headers.get('content-length', 0))
                         downloaded_size = 0
@@ -881,6 +935,10 @@ del "%~f0"
 
 
 if __name__ == '__main__':
+    # 确保工作目录为应用所在目录（Windows 自启时 CWD 可能为 System32）
+    exe_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(sys.argv[0]))
+    os.chdir(exe_dir)
+
     try:
         app = QApplication(sys.argv)
         workday_timer = WorkdayTimer(app)

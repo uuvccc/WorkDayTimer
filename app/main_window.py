@@ -66,15 +66,21 @@ class MainWindow(QWidget):
         )
 
         self.timer_expiry = work_end_time
+        logger.info(f"Timer setup: now={current_time.strftime('%H:%M')}, "
+                     f"flexible={is_flexible}, work_end={work_end_time.strftime('%H:%M')}")
 
         checkout_enabled = config_manager.get_reminder_setting('checkout_reminder')
         if checkout_enabled:
             delay = time_service.calculate_remaining_seconds(work_end_time)
             self.timer_type = delay
+            logger.info(f"Checkout reminder enabled, delay={delay:.0f}s "
+                        f"({delay/60:.1f}min)")
             self.reminder_timer = QTimer(self)
             self.reminder_timer.timeout.connect(self.show_checkout_reminder)
             self.reminder_timer.setSingleShot(True)
             self.reminder_timer.start(int(delay * 1000))
+        else:
+            logger.info("Checkout reminder is DISABLED in settings")
 
         job_record_enabled = config_manager.get_reminder_setting('job_record_reminder')
         if job_record_enabled:
@@ -97,9 +103,6 @@ class MainWindow(QWidget):
         self.tray_menu.startup_action.triggered.connect(self.toggle_run_on_startup)
         self.tray_menu.exit_action.triggered.connect(self.exit_app)
         self.tray_menu.tray_icon.activated.connect(self.on_tray_icon_activated)
-
-        self.tray_menu.set_flexible_mode(config_manager.is_flexible)
-        self.tray_menu.set_run_on_startup(system_service.is_run_on_startup())
 
     def _setup_keyboard_hook(self):
         keyboard_service.set_enter_key_callback(self.toggle_qq_window)
@@ -154,6 +157,7 @@ class MainWindow(QWidget):
         ReminderDialog.show_job_record(self)
 
     def show_checkout_reminder(self):
+        logger.info("Checkout reminder triggered!")
         is_flexible = config_manager.is_flexible
         ReminderDialog.show_checkout(self, is_flexible, self.shutdown_computer)
 
@@ -167,6 +171,8 @@ class MainWindow(QWidget):
     def show_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.exec_()
+        # 对话框关闭后同步托盘菜单状态
+        self.tray_menu.set_flexible_mode(config_manager.is_flexible)
         self.tray_menu.set_run_on_startup(system_service.is_run_on_startup())
 
     def start_custom_countdown(self, minutes):

@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 from PyQt5.QtWidgets import QApplication, QMessageBox
@@ -28,6 +29,10 @@ class MiniToolsApplication:
 
     def run(self):
         try:
+            # 确保工作目录是应用所在目录（自启时 Windows 可能以 System32 为 CWD）
+            exe_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(sys.argv[0]))
+            os.chdir(exe_dir)
+
             import traceback
             self._setup_exception_handler()
 
