@@ -101,6 +101,35 @@ class ConfigManager:
         self._settings["run_on_startup"] = value
         self._save()
 
+    # ── Work Hours ────────────────────────────────────────
+
+    @property
+    def work_hours(self) -> float:
+        return self._settings.get("work_hours", 8.5)
+
+    @work_hours.setter
+    def work_hours(self, value: float):
+        self._settings["work_hours"] = value
+        self._save()
+
+    @property
+    def fixed_start_hour(self) -> float:
+        return self._settings.get("fixed_start_hour", 9.0)
+
+    @fixed_start_hour.setter
+    def fixed_start_hour(self, value: float):
+        self._settings["fixed_start_hour"] = value
+        self._save()
+
+    @property
+    def job_record_before_end_minutes(self) -> int:
+        return self._settings.get("job_record_before_end_minutes", 60)
+
+    @job_record_before_end_minutes.setter
+    def job_record_before_end_minutes(self, value: int):
+        self._settings["job_record_before_end_minutes"] = value
+        self._save()
+
     # ── Reminder Settings ─────────────────────────────────
 
     @property
@@ -127,15 +156,26 @@ class ConfigManager:
         return {
             "flexible_mode": self.is_flexible,
             "run_on_startup": self.run_on_startup,
+            "work_hours": self.work_hours,
+            "fixed_start_hour": self.fixed_start_hour,
+            "job_record_before_end_minutes": self.job_record_before_end_minutes,
             "reminders": self.reminder_settings,
         }
 
-    def apply_changes(self, flexible_mode=None, run_on_startup=None, reminders=None):
+    def apply_changes(self, flexible_mode=None, run_on_startup=None,
+                      work_hours=None, fixed_start_hour=None,
+                      job_record_before_end_minutes=None, reminders=None):
         """批量写入（避免多次 save）"""
         if flexible_mode is not None:
             self._settings["flexible_mode"] = flexible_mode
         if run_on_startup is not None:
             self._settings["run_on_startup"] = run_on_startup
+        if work_hours is not None:
+            self._settings["work_hours"] = work_hours
+        if fixed_start_hour is not None:
+            self._settings["fixed_start_hour"] = fixed_start_hour
+        if job_record_before_end_minutes is not None:
+            self._settings["job_record_before_end_minutes"] = job_record_before_end_minutes
         if reminders is not None:
             self._settings["reminders"] = reminders
         self._save()

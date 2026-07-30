@@ -96,11 +96,8 @@ class MainWindow(QWidget):
     def _setup_tray_menu(self):
         self.tray_menu = TrayMenu(ICON_FILE, self)
         self.tray_menu.open_action.triggered.connect(self.move_to_front)
-        self.tray_menu.flexible_action.triggered.connect(self.toggle_flexible_mode)
         self.tray_menu.custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
         self.tray_menu.settings_action.triggered.connect(self.show_settings_dialog)
-        self.tray_menu.update_action.triggered.connect(self.update_application)
-        self.tray_menu.startup_action.triggered.connect(self.toggle_run_on_startup)
         self.tray_menu.exit_action.triggered.connect(self.exit_app)
         self.tray_menu.tray_icon.activated.connect(self.on_tray_icon_activated)
 
@@ -169,11 +166,8 @@ class MainWindow(QWidget):
                 self.start_custom_countdown(minutes)
 
     def show_settings_dialog(self):
-        dialog = SettingsDialog(self)
+        dialog = SettingsDialog(self, update_callback=self.update_application)
         dialog.exec_()
-        # 对话框关闭后同步托盘菜单状态
-        self.tray_menu.set_flexible_mode(config_manager.is_flexible)
-        self.tray_menu.set_run_on_startup(system_service.is_run_on_startup())
 
     def start_custom_countdown(self, minutes):
         if hasattr(self, 'custom_timer'):
@@ -186,22 +180,6 @@ class MainWindow(QWidget):
 
     def show_custom_timer_reminder(self):
         ReminderDialog.show_custom_timer(self)
-
-    def toggle_flexible_mode(self, checked):
-        config_manager.is_flexible = checked
-        self.tray_menu.set_flexible_mode(checked)
-        QMessageBox.information(self, "Mode Changed",
-                                "Flexible mode has been " + ("enabled" if checked else "disabled") + ".\n"
-                                "Please restart the application for the changes to take effect.")
-
-    def toggle_run_on_startup(self, checked):
-        success, message = system_service.toggle_run_on_startup(checked)
-        if success:
-            QMessageBox.information(self, "Startup Setting", message)
-            self.tray_menu.set_run_on_startup(checked)
-        else:
-            QMessageBox.critical(self, "Error", message)
-            self.tray_menu.set_run_on_startup(not checked)
 
     def update_application(self):
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton

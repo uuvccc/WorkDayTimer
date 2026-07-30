@@ -1,0 +1,12 @@
+{
+  "flexible_mode": false,
+  "run_on_startup": true,
+  "work_hours": 8.5,
+  "fixed_start_hour": 9.0,
+  "job_record_before_end_minutes": 60,
+  "reminders": {
+    "checkin_reminder": true,
+    "job_record_reminder": false,
+    "checkout_reminder": true
+  }
+}

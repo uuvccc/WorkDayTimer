@@ -4,10 +4,8 @@ from app.config.manager import ConfigManager
 
 class TestConfigManager(unittest.TestCase):
     def test_default_reminder_settings(self):
-        from app.config.constants import REMINDER_SETTINGS_FILE
         with patch('builtins.open', side_effect=FileNotFoundError):
             config = ConfigManager()
-            
             self.assertTrue(config.get_reminder_setting('checkin_reminder'))
             self.assertTrue(config.get_reminder_setting('job_record_reminder'))
             self.assertTrue(config.get_reminder_setting('checkout_reminder'))
@@ -45,6 +43,28 @@ class TestConfigManager(unittest.TestCase):
         with patch('builtins.open', side_effect=FileNotFoundError):
             config = ConfigManager()
             self.assertFalse(config.is_flexible)
+
+    def test_work_hours_default(self):
+        with patch('builtins.open', side_effect=FileNotFoundError):
+            config = ConfigManager()
+            self.assertEqual(config.work_hours, 8.5)
+
+    def test_work_hours_set_get(self):
+        with patch('builtins.open', side_effect=FileNotFoundError):
+            config = ConfigManager()
+            config.work_hours = 7.0
+            self.assertEqual(config.work_hours, 7.0)
+
+    def test_fixed_start_hour_default(self):
+        with patch('builtins.open', side_effect=FileNotFoundError):
+            config = ConfigManager()
+            self.assertEqual(config.fixed_start_hour, 9.0)
+
+    def test_job_record_before_end_minutes_default(self):
+        with patch('builtins.open', side_effect=FileNotFoundError):
+            config = ConfigManager()
+            self.assertEqual(config.job_record_before_end_minutes, 60)
+
 
 if __name__ == '__main__':
     unittest.main()

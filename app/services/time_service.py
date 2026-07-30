@@ -1,6 +1,7 @@
 import datetime
 import os
 from app.config.constants import START_TIME_FILE
+from app.config.manager import config_manager
 
 class TimeService:
     def get_last_start_time(self):
@@ -40,14 +41,19 @@ class TimeService:
             start_time = datetime.datetime.now()
 
         adjusted_start_time = start_time - datetime.timedelta(seconds=92)
+        work_hours = config_manager.work_hours
+        fixed_start_hour = config_manager.fixed_start_hour
+        before_end_minutes = config_manager.job_record_before_end_minutes
 
         if not is_flexible:
-            morning_nine = datetime.time(9, 0)
-            adjusted_start_time = datetime.datetime.combine(start_time.date(), morning_nine)
+            hour = int(fixed_start_hour)
+            minute = int((fixed_start_hour - hour) * 60)
+            fixed_time = datetime.time(hour, minute)
+            adjusted_start_time = datetime.datetime.combine(start_time.date(), fixed_time)
 
         adjusted_start_time = adjusted_start_time.replace(second=0, microsecond=0)
-        work_end_time = adjusted_start_time + datetime.timedelta(hours=8.5)
-        job_record_time = adjusted_start_time + datetime.timedelta(hours=7.5)
+        work_end_time = adjusted_start_time + datetime.timedelta(hours=work_hours)
+        job_record_time = work_end_time - datetime.timedelta(minutes=before_end_minutes)
 
         return adjusted_start_time, work_end_time, job_record_time
 

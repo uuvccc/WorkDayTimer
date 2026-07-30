@@ -38,10 +38,18 @@ DIALOG_SIZE_HEIGHT = 550
 JOB_DIALOG_SIZE_WIDTH = 900
 JOB_DIALOG_SIZE_HEIGHT = 700
 
+# 工作时长默认值
+DEFAULT_WORK_HOURS = 8.5
+DEFAULT_FIXED_START_HOUR = 9.0
+DEFAULT_JOB_RECORD_BEFORE_END_MINUTES = 60
+
 # 默认设置
 DEFAULT_SETTINGS = {
     "flexible_mode": False,
     "run_on_startup": False,
+    "work_hours": DEFAULT_WORK_HOURS,
+    "fixed_start_hour": DEFAULT_FIXED_START_HOUR,
+    "job_record_before_end_minutes": DEFAULT_JOB_RECORD_BEFORE_END_MINUTES,
     "reminders": {
         "checkin_reminder": True,
         "job_record_reminder": True,
