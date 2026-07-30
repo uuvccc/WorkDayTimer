@@ -1,6 +1,7 @@
+import sys
 import unittest
 import datetime
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, MagicMock
 from app.services.time_service import time_service
 
 
@@ -8,14 +9,19 @@ class TestTimeService(unittest.TestCase):
     _default_config = {"work_hours": 8.5, "fixed_start_hour": 9.0, "job_record_before_end_minutes": 60}
 
     def _patch_config(self, **overrides):
-        """返回 patch.object 上下文管理器，mock config_manager 的三个属性。"""
+        """mock 模块级 config_manager 的三个属性。
+
+        由于 app/services/__init__.py 将 time_service 实例导入到包命名空间，
+        app.services.time_service 被实例遮蔽（shadow），无法作为模块路径直接使用，
+        因此改用 sys.modules 获取真实模块对象后再 patch。
+        """
         values = {**self._default_config, **overrides}
-        return patch(
-            "app.services.time_service.config_manager",
-            work_hours=values["work_hours"],
-            fixed_start_hour=values["fixed_start_hour"],
-            job_record_before_end_minutes=values["job_record_before_end_minutes"],
-        )
+        ts_module = sys.modules["app.services.time_service"]
+        mock_config = MagicMock()
+        mock_config.work_hours = values["work_hours"]
+        mock_config.fixed_start_hour = values["fixed_start_hour"]
+        mock_config.job_record_before_end_minutes = values["job_record_before_end_minutes"]
+        return patch.object(ts_module, "config_manager", mock_config)
 
     def test_calculate_work_end_time_flexible(self):
         start_time = datetime.datetime(2026, 7, 27, 9, 0, 0)
