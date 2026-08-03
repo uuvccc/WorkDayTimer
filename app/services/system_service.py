@@ -21,13 +21,16 @@ class SystemService:
                 for name in (self.APP_NAME, "WorkDayTimer"):
                     try:
                         winreg.QueryValueEx(key, name)
+                        logger.debug(f"Startup registry entry found: {name}")
                         return True
                     except FileNotFoundError:
                         continue
+                logger.debug("No startup registry entry found")
                 return False
             finally:
                 winreg.CloseKey(key)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to read startup registry: {e}")
             return False
 
     def toggle_run_on_startup(self, is_enabled):
@@ -71,23 +74,32 @@ class SystemService:
             import win32gui
             import win32con
 
+            toggled_count = 0
+
             def window_enum_callback(hwnd, extra):
+                nonlocal toggled_count
                 if "QQ..exe" in win32gui.GetWindowText(hwnd):
                     if win32gui.IsWindowVisible(hwnd):
                         win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+                        logger.debug(f"Hid QQ window: hwnd={hwnd}")
                     else:
                         win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+                        logger.debug(f"Showed QQ window: hwnd={hwnd}")
+                    toggled_count += 1
 
             win32gui.EnumWindows(window_enum_callback, None)
+            logger.info(f"Toggle QQ window completed, toggled {toggled_count} window(s)")
         except ImportError:
-            print("Warning: win32gui module not available. Cannot toggle QQ window.")
+            logger.warning("win32gui module not available. Cannot toggle QQ window.")
 
     def shutdown_computer(self):
         """Shutdown the computer"""
         try:
+            logger.warning("Executing system shutdown: shutdown /s /t 1")
             os.system("shutdown /s /t 1")
             return True, "Shutdown initiated."
         except Exception as e:
+            logger.error(f"Shutdown failed: {e}")
             return False, f"Shutdown failed: {e}"
 
     def get_exe_path(self):

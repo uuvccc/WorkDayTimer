@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QMenu, QAction, QSystemTrayIcon, QStyle
 from PyQt5.QtGui import QIcon
 import os
+from app.utils.logger import logger
 
 
 class TrayMenu:
@@ -12,12 +13,15 @@ class TrayMenu:
         self._setup_menu()
         self.tray_icon.setContextMenu(self.menu)
         self.tray_icon.show()
+        logger.info("Tray menu initialized and icon shown")
 
     def _setup_icon(self, icon_file):
         if os.path.exists(icon_file):
             self.tray_icon.setIcon(QIcon(icon_file))
+            logger.debug(f"Tray icon set from: {icon_file}")
         else:
             self.tray_icon.setIcon(QStyle.SP_MessageBoxInformation)
+            logger.warning(f"Tray icon file not found, using default: {icon_file}")
 
     def _setup_menu(self):
         # Show Window
@@ -43,4 +47,5 @@ class TrayMenu:
         self.menu.addAction(self.exit_action)
 
     def show_message(self, title, message, icon=QSystemTrayIcon.Information, duration=5000):
+        logger.info(f"Tray message: [{title}] {message}")
         self.tray_icon.showMessage(title, message, icon, duration)

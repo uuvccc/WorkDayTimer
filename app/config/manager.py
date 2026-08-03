@@ -12,8 +12,12 @@ from app.utils.logger import logger
 class ConfigManager:
     def __init__(self):
         self._settings = DEFAULT_SETTINGS.copy()
+        logger.debug("ConfigManager initializing...")
         self._migrate_old_files()
         self._load()
+        logger.info(f"ConfigManager loaded: flexible={self.is_flexible}, "
+                    f"startup={self.run_on_startup}, work_hours={self.work_hours}, "
+                    f"reminders={self.reminder_settings}")
 
     # ── 文件读写 ──────────────────────────────────────────
 
@@ -28,17 +32,20 @@ class ConfigManager:
             if "reminders" in data and isinstance(data["reminders"], dict):
                 merged["reminders"] = {**DEFAULT_SETTINGS["reminders"], **data["reminders"]}
             self._settings = merged
+            logger.debug(f"Settings loaded from {SETTINGS_FILE}")
         except FileNotFoundError:
+            logger.info(f"Settings file not found, creating default: {SETTINGS_FILE}")
             self._save()
         except Exception as e:
-            logger.error(f"Failed to load settings: {e}")
+            logger.error(f"Failed to load settings: {e}", exc_info=True)
 
     def _save(self):
         try:
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(self._settings, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Settings saved to {SETTINGS_FILE}")
         except Exception as e:
-            logger.error(f"Failed to save settings: {e}")
+            logger.error(f"Failed to save settings: {e}", exc_info=True)
 
     def _migrate_old_files(self):
         """将旧的 flexible_mode.txt / reminder_settings.txt 迁移到 settings.json"""
@@ -87,8 +94,10 @@ class ConfigManager:
 
     @is_flexible.setter
     def is_flexible(self, value: bool):
+        old = self._settings.get("flexible_mode", False)
         self._settings["flexible_mode"] = value
         self._save()
+        logger.info(f"flexible_mode changed: {old} -> {value}")
 
     # ── Run on Startup ────────────────────────────────────
 
@@ -98,8 +107,10 @@ class ConfigManager:
 
     @run_on_startup.setter
     def run_on_startup(self, value: bool):
+        old = self._settings.get("run_on_startup", False)
         self._settings["run_on_startup"] = value
         self._save()
+        logger.info(f"run_on_startup changed: {old} -> {value}")
 
     # ── Work Hours ────────────────────────────────────────
 
@@ -109,8 +120,10 @@ class ConfigManager:
 
     @work_hours.setter
     def work_hours(self, value: float):
+        old = self._settings.get("work_hours", 8.5)
         self._settings["work_hours"] = value
         self._save()
+        logger.info(f"work_hours changed: {old} -> {value}")
 
     @property
     def fixed_start_hour(self) -> float:
@@ -118,8 +131,10 @@ class ConfigManager:
 
     @fixed_start_hour.setter
     def fixed_start_hour(self, value: float):
+        old = self._settings.get("fixed_start_hour", 9.0)
         self._settings["fixed_start_hour"] = value
         self._save()
+        logger.info(f"fixed_start_hour changed: {old} -> {value}")
 
     @property
     def job_record_before_end_minutes(self) -> int:
@@ -127,8 +142,10 @@ class ConfigManager:
 
     @job_record_before_end_minutes.setter
     def job_record_before_end_minutes(self, value: int):
+        old = self._settings.get("job_record_before_end_minutes", 60)
         self._settings["job_record_before_end_minutes"] = value
         self._save()
+        logger.info(f"job_record_before_end_minutes changed: {old} -> {value}")
 
     # ── Reminder Settings ─────────────────────────────────
 
@@ -142,8 +159,10 @@ class ConfigManager:
     def set_reminder_setting(self, key: str, value: bool):
         if key not in self._settings.get("reminders", {}):
             raise ValueError(f"Unknown reminder setting: {key}")
+        old = self._settings["reminders"].get(key, True)
         self._settings["reminders"][key] = value
         self._save()
+        logger.info(f"reminder '{key}' changed: {old} -> {value}")
 
     def toggle_reminder_setting(self, key: str) -> bool:
         current = self.get_reminder_setting(key)
@@ -166,19 +185,28 @@ class ConfigManager:
                       work_hours=None, fixed_start_hour=None,
                       job_record_before_end_minutes=None, reminders=None):
         """批量写入（避免多次 save）"""
+        changes = []
         if flexible_mode is not None:
+            changes.append(f"flexible_mode: {self._settings.get('flexible_mode')} -> {flexible_mode}")
             self._settings["flexible_mode"] = flexible_mode
         if run_on_startup is not None:
+            changes.append(f"run_on_startup: {self._settings.get('run_on_startup')} -> {run_on_startup}")
             self._settings["run_on_startup"] = run_on_startup
         if work_hours is not None:
+            changes.append(f"work_hours: {self._settings.get('work_hours')} -> {work_hours}")
             self._settings["work_hours"] = work_hours
         if fixed_start_hour is not None:
+            changes.append(f"fixed_start_hour: {self._settings.get('fixed_start_hour')} -> {fixed_start_hour}")
             self._settings["fixed_start_hour"] = fixed_start_hour
         if job_record_before_end_minutes is not None:
+            changes.append(f"job_record_before_end_minutes: {self._settings.get('job_record_before_end_minutes')} -> {job_record_before_end_minutes}")
             self._settings["job_record_before_end_minutes"] = job_record_before_end_minutes
         if reminders is not None:
+            changes.append(f"reminders: {self._settings.get('reminders')} -> {reminders}")
             self._settings["reminders"] = reminders
         self._save()
+        if changes:
+            logger.info(f"Settings batch update: {'; '.join(changes)}")
 
 
 config_manager = ConfigManager()

@@ -5,7 +5,7 @@
   "fixed_start_hour": 9.0,
   "job_record_before_end_minutes": 60,
   "reminders": {
-    "checkin_reminder": false,
+    "checkin_reminder": true,
     "job_record_reminder": false,
     "checkout_reminder": true
   }

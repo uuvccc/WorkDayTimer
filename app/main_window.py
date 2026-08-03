@@ -18,14 +18,17 @@ class MainWindow(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
+        logger.debug("MainWindow.__init__ start")
         self._setup_ui()
         self._setup_timers()
         self._setup_tray_menu()
         self._setup_keyboard_hook()
         self._check_for_updates()
+        logger.info("MainWindow initialization complete")
 
     def _setup_ui(self):
         try:
+            logger.debug("Setting up UI components")
             self.countdown_label = QLabel(self)
             self.setFocusPolicy(Qt.StrongFocus)
             self.countdown_label.setPixmap(QPixmap(DEFAULT_TIMER_IMAGE).scaled(
@@ -40,6 +43,7 @@ class MainWindow(QWidget):
         self.display_timer = QTimer(self)
         self.display_timer.timeout.connect(self.update_timer_display)
         self.display_timer.start(100)
+        logger.debug("Display timer started (100ms interval)")
 
         self.time_label = QLabel('Countdown: {}'.format(0), self)
         self.time_label.setAlignment(Qt.AlignCenter)
@@ -52,10 +56,12 @@ class MainWindow(QWidget):
         self.setGeometry(x, y, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.show()
+        logger.debug(f"Window positioned at ({x}, {y}), size=({WINDOW_SIZE_WIDTH}x{WINDOW_SIZE_HEIGHT})")
 
     def _setup_timers(self):
         current_time = datetime.datetime.now()
         is_first_start = time_service.is_first_start_of_day()
+        logger.info(f"Timer setup | now={current_time.strftime('%H:%M:%S')} | is_first_start={is_first_start}")
 
         if is_first_start:
             time_service.write_start_time(current_time)
@@ -94,6 +100,7 @@ class MainWindow(QWidget):
             self.show_checkin_reminder()
 
     def _setup_tray_menu(self):
+        logger.debug("Setting up tray menu")
         self.tray_menu = TrayMenu(ICON_FILE, self)
         self.tray_menu.open_action.triggered.connect(self.move_to_front)
         self.tray_menu.custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
@@ -102,6 +109,7 @@ class MainWindow(QWidget):
         self.tray_menu.tray_icon.activated.connect(self.on_tray_icon_activated)
 
     def _setup_keyboard_hook(self):
+        logger.debug("Setting up keyboard hook")
         keyboard_service.set_enter_key_callback(self.toggle_qq_window)
         keyboard_service.start_listening()
 
@@ -111,12 +119,14 @@ class MainWindow(QWidget):
         update_thread.start()
 
     def _do_check_updates(self):
+        logger.debug("Checking for updates in background thread")
         try:
             has_update, latest_version, current_version = update_service.check_for_updates()
+            logger.info(f"Update check result: has_update={has_update}, latest={latest_version}, current={current_version}")
             if has_update:
                 QApplication.postEvent(self, QEvent(QEvent.User))
         except Exception as e:
-            logger.error(f"Error checking for updates: {e}")
+            logger.error(f"Error checking for updates: {e}", exc_info=True)
 
     def update_timer_display(self):
         seconds = 0
@@ -148,30 +158,42 @@ class MainWindow(QWidget):
         self.show()
 
     def show_checkin_reminder(self):
+        logger.info("Showing check-in reminder dialog")
         ReminderDialog.show_checkin(self)
 
     def show_job_record_warning(self):
+        logger.info("Showing job record reminder dialog")
         ReminderDialog.show_job_record(self)
 
     def show_checkout_reminder(self):
         logger.info("Checkout reminder triggered!")
         is_flexible = config_manager.is_flexible
+        logger.info(f"Checkout reminder: is_flexible={is_flexible}")
         ReminderDialog.show_checkout(self, is_flexible, self.shutdown_computer)
 
     def show_custom_timer_dialog(self):
+        logger.debug("Opening custom timer dialog")
         dialog = CustomTimerDialog(self)
-        if dialog.exec_() == QDialog.Accepted:
+        result = dialog.exec_()
+        if result == QDialog.Accepted:
             minutes = dialog.get_minutes()
+            logger.info(f"Custom timer dialog accepted: {minutes} minutes")
             if minutes > 0:
                 self.start_custom_countdown(minutes)
+        else:
+            logger.debug("Custom timer dialog cancelled")
 
     def show_settings_dialog(self):
+        logger.debug("Opening settings dialog")
         dialog = SettingsDialog(self, update_callback=self.update_application)
         dialog.exec_()
+        logger.debug("Settings dialog closed")
 
     def start_custom_countdown(self, minutes):
+        logger.info(f"Starting custom countdown: {minutes} minutes")
         if hasattr(self, 'custom_timer'):
             self.custom_timer.stop()
+            logger.debug("Stopped previous custom timer")
 
         self.custom_timer = QTimer(self)
         self.custom_timer.timeout.connect(self.show_custom_timer_reminder)
@@ -179,6 +201,7 @@ class MainWindow(QWidget):
         self.custom_timer.start(minutes * 60 * 1000)
 
     def show_custom_timer_reminder(self):
+        logger.info("Custom timer expired, showing reminder")
         ReminderDialog.show_custom_timer(self)
 
     def update_application(self):
@@ -288,17 +311,21 @@ class MainWindow(QWidget):
                 QMessageBox.critical(self, "Error", "Failed to prepare updater script.")
 
     def toggle_qq_window(self):
+        logger.debug("Toggle QQ window triggered (Enter key)")
         system_service.toggle_qq_window()
 
     def shutdown_computer(self):
+        logger.warning("Shutdown computer requested!")
         system_service.shutdown_computer()
 
     def move_to_front(self):
+        logger.debug("Move window to front")
         self.show()
         self.raise_()
         self.activateWindow()
 
     def exit_app(self):
+        logger.info("Exiting application")
         keyboard_service.stop_listening()
         self.app.quit()
 
@@ -306,6 +333,7 @@ class MainWindow(QWidget):
         event.ignore()
 
     def on_tray_icon_activated(self, reason):
+        logger.debug(f"Tray icon activated: reason={reason}")
         if reason == QSystemTrayIcon.Trigger:
             self.move_to_front()
 
@@ -325,6 +353,7 @@ class MainWindow(QWidget):
 
     def event(self, event):
         if event.type() == QEvent.User:
+            logger.info("Update available event received, prompting user")
             if ReminderDialog.show_update_available(self):
                 self.update_application()
             return True

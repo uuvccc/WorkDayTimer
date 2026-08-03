@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from app.config.manager import config_manager
 from app.services import system_service, update_service
+from app.utils.logger import logger
 
 SIDEBAR_STYLE = """
 QListWidget {
@@ -38,6 +39,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None, update_callback=None):
         super().__init__(parent)
         self._update_callback = update_callback
+        logger.debug("SettingsDialog opening")
         self.setWindowTitle("Settings")
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setMinimumSize(520, 340)
@@ -241,6 +243,7 @@ class SettingsDialog(QDialog):
     # ── Read / Write ──────────────────────────────────────
 
     def _load_settings(self):
+        logger.debug("Loading settings into dialog controls")
         self.flexible_checkbox.setChecked(config_manager.is_flexible)
         self.work_hours_spin.setValue(config_manager.work_hours)
         self.fixed_start_spin.setValue(config_manager.fixed_start_hour)
@@ -251,6 +254,7 @@ class SettingsDialog(QDialog):
         self.startup_checkbox.setChecked(system_service.is_run_on_startup())
 
     def _on_ok(self):
+        logger.debug("Settings OK button clicked")
         old_flexible = config_manager.is_flexible
         new_flexible = self.flexible_checkbox.isChecked()
         config_manager.is_flexible = new_flexible
@@ -266,11 +270,13 @@ class SettingsDialog(QDialog):
         new_startup = self.startup_checkbox.isChecked()
         success, msg = system_service.toggle_run_on_startup(new_startup)
         if not success:
+            logger.error(f"Failed to toggle startup: {msg}")
             QMessageBox.critical(self, "Error", msg)
             self.startup_checkbox.setChecked(not new_startup)
             return
 
         self.accept()
+        logger.info("Settings dialog accepted")
 
         if old_flexible != new_flexible:
             QMessageBox.information(
@@ -280,6 +286,7 @@ class SettingsDialog(QDialog):
             )
 
     def _on_check_updates(self):
+        logger.debug("Check for updates button clicked")
         if self._update_callback:
             self._update_callback()
         else:

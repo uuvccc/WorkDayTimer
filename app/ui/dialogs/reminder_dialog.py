@@ -1,10 +1,12 @@
 from PyQt5.QtWidgets import QMessageBox, QPushButton
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
+from app.utils.logger import logger
 
 class ReminderDialog:
     @staticmethod
     def show_checkin(parent=None):
+        logger.debug("Showing check-in reminder dialog")
         dialog = QMessageBox(parent)
         dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
         dialog.setWindowTitle("Microsoft Visual Studio")
@@ -16,6 +18,7 @@ class ReminderDialog:
 
     @staticmethod
     def show_job_record(parent=None):
+        logger.debug("Showing job record reminder dialog")
         dialog = QMessageBox(parent)
         dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         dialog.setWindowTitle("Work Record Reminder")
@@ -26,6 +29,7 @@ class ReminderDialog:
 
     @staticmethod
     def show_checkout(parent=None, is_flexible=True, shutdown_callback=None):
+        logger.debug(f"Showing checkout reminder dialog: is_flexible={is_flexible}, has_shutdown_cb={shutdown_callback is not None}")
         dialog = QMessageBox(parent)
         dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         dialog.setWindowTitle("Microsoft Visual Studio")
@@ -59,6 +63,7 @@ class ReminderDialog:
 
     @staticmethod
     def show_custom_timer(parent=None):
+        logger.debug("Showing custom timer reminder dialog")
         dialog = QMessageBox(parent)
         dialog.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         dialog.setWindowTitle("Custom Timer")
@@ -70,6 +75,7 @@ class ReminderDialog:
     @staticmethod
     def show_update_available(parent=None):
         from PyQt5.QtWidgets import QMessageBox
+        logger.debug("Showing update available dialog")
         reply = QMessageBox.question(parent, "Update Available",
                                      "A new version of MiniTools is available!\n"
                                      "Do you want to update now?",

@@ -1,10 +1,12 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
 from PyQt5.QtGui import QFont, QIntValidator
 from PyQt5.QtCore import Qt
+from app.utils.logger import logger
 
 class CustomTimerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        logger.debug("CustomTimerDialog opening")
         self.setWindowTitle("Custom Timer")
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
         self._result_minutes = 0
@@ -81,20 +83,26 @@ class CustomTimerDialog(QDialog):
     def _add_minutes(self, minutes):
         try:
             current = int(self.input_field.text())
-            self.input_field.setText(str(current + minutes))
+            new_val = current + minutes
+            self.input_field.setText(str(new_val))
+            logger.debug(f"Added {minutes} minutes, total now: {new_val}")
         except ValueError:
             self.input_field.setText(str(minutes))
+            logger.debug(f"Invalid input, reset to {minutes} minutes")
 
     def _on_ok(self):
         try:
             minutes = int(self.input_field.text())
             if minutes > 0:
                 self._result_minutes = minutes
+                logger.info(f"Custom timer set: {minutes} minutes")
                 self.accept()
             else:
+                logger.warning(f"Custom timer invalid input: {minutes} (must be positive)")
                 from PyQt5.QtWidgets import QMessageBox
                 QMessageBox.warning(self, "Invalid Input", "Please enter a positive number.")
         except ValueError:
+            logger.warning(f"Custom timer non-numeric input: '{self.input_field.text()}'")
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Invalid Input", "Please enter a valid number.")
 
