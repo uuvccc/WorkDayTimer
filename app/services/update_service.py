@@ -7,12 +7,18 @@ import threading
 from app.utils.version import is_newer_version
 from app.utils.logger import logger
 
-# GitHub 代理镜像列表（按优先级排序，直连失败后自动回退）
+# GitHub 下载代理镜像列表（按优先级排序，直连失败后自动回退）
+# 说明：
+#  - 这些是社区公益加速服务，随时可能失效；失效后按此格式替换/增删即可。
+#  - 此类代理只代理 github.com 的下载/raw 链接，不代理 api.github.com 接口，
+#    因此检查更新始终直连 api.github.com（见 check_for_updates）。
 GITHUB_PROXY_MIRRORS = [
-    "https://ghproxy.com/",
-    "https://gh.api.99988866.xyz/",
-    "https://github.moeyy.xyz/",
+    "https://ghfast.top/",
     "https://gh-proxy.com/",
+    "https://ghproxy.net/",
+    "https://gh.llkk.cc/",
+    "https://ghp.ci/",
+    "https://github.moeyy.xyz/",
 ]
 
 
@@ -70,12 +76,17 @@ class UpdateService:
             return "1.0.0"
 
     def check_for_updates(self):
-        """检查更新，支持 GitHub 代理镜像自动回退"""
+        """检查更新。
+
+        下载代理镜像（ghfast.top 等）只代理 github.com 的下载/raw 链接，
+        不代理 api.github.com 接口，所以这里始终直连 API，避免对无效
+        代理做无意义的等待。若直连失败则本次跳过检查（不影响应用运行）。
+        """
         try:
             current_version = self.get_current_version()
-            api_urls = _build_proxy_urls(self.GITHUB_API_URL)
-            response, used_url = _try_request(api_urls, timeout=15)
-
+            logger.info(f"Checking for updates, current version: {current_version}")
+            response = requests.get(self.GITHUB_API_URL, timeout=15)
+            response.raise_for_status()
             release_data = response.json()
             latest_version = release_data['tag_name'].lstrip('v')
 
@@ -111,6 +122,24 @@ class UpdateService:
                             callback(progress, f"Downloading update... {progress}%")
                         elif callback:
                             callback(None, f"Downloading update... {downloaded_size} bytes")
+
+            # 校验 1：文件大小与服务器声明一致（代理可能中途截断）
+            if total_size > 0 and downloaded_size != total_size:
+                os.remove(temp_exe_path)
+                error = (f"Download incomplete: expected {total_size} bytes, "
+                         f"got {downloaded_size} bytes.")
+                logger.error(error)
+                return False, None, error
+
+            # 校验 2：必须是以 MZ 开头的 PE 可执行文件，
+            # 防止代理返回 200 + HTML 错误页时把垃圾内容当作 exe 安装。
+            with open(temp_exe_path, "rb") as f:
+                if f.read(2) != b"MZ":
+                    os.remove(temp_exe_path)
+                    error = ("Downloaded file is not a valid executable "
+                             "(the proxy may have returned an error page).")
+                    logger.error(error)
+                    return False, None, error
 
             return True, temp_exe_path, None
         except requests.exceptions.Timeout:
