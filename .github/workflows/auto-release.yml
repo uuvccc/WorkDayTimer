@@ -49,8 +49,9 @@ jobs:
     - name: Generate version number
       id: version
       run: |
-        # Get current version from setup.py
-        $version = (python -c "import setup; print(setup.setup.version)")
+        # Get current version from package metadata (avoid importing setup.py,
+        # which runs setup() and exits the process)
+        $version = (python -c "from app import __version__; print(__version__)")
         # Get commit count
         $commitCount = git rev-list --count HEAD
         # Create version string

@@ -1,8 +1,9 @@
 from setuptools import setup, find_packages
+from app import __version__
 
 setup(
     name="minitools",
-    version="1.0.0",
+    version=__version__,
     packages=find_packages(),
     install_requires=[
         "PyQt5>=5.15.0",

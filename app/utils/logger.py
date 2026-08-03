@@ -2,13 +2,14 @@ import logging
 import os
 import sys
 
-def get_base_dir():
+def get_project_root():
+    """获取项目根目录：exe 模式下为 exe 所在目录，脚本模式下为 __file__ 上两级"""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def setup_logging(name=__name__, level=logging.DEBUG):
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(get_base_dir())), 'logs')
+    log_dir = os.path.join(get_project_root(), 'logs')
     os.makedirs(log_dir, exist_ok=True)
     
     log_file = os.path.join(log_dir, 'app.log')
