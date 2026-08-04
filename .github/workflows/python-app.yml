@@ -43,7 +43,8 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name MiniTools main.py
+        # --add-data 必须带上 images 目录，否则 exe 运行时找不到托盘图标和宠物图片
+        pyinstaller --onefile --windowed --name MiniTools --add-data "images;images" main.py
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4

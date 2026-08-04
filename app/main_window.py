@@ -20,8 +20,8 @@ class MainWindow(QWidget):
         self.app = app
         logger.debug("MainWindow.__init__ start")
         self._setup_ui()
-        self._setup_timers()
         self._setup_tray_menu()
+        self._setup_timers()
         self._setup_keyboard_hook()
         self._check_for_updates()
         logger.info("MainWindow initialization complete")
@@ -97,7 +97,10 @@ class MainWindow(QWidget):
             self.reminder_timer2.start(int(delay2 * 1000))
 
         if is_first_start and config_manager.get_reminder_setting('checkin_reminder'):
-            self.show_checkin_reminder()
+            # 推迟到 __init__ 完成后弹出：show_checkin_reminder 内部是模态 exec_()，
+            # 若在初始化中途调用会阻塞剩余初始化（如 tray_menu 尚未创建），
+            # 导致右键图片时报 'MainWindow' object has no attribute 'tray_menu'。
+            QTimer.singleShot(0, self.show_checkin_reminder)
 
     def _setup_tray_menu(self):
         logger.debug("Setting up tray menu")
@@ -338,6 +341,9 @@ class MainWindow(QWidget):
             self.move_to_front()
 
     def show_context_menu(self, position):
+        if not hasattr(self, 'tray_menu'):
+            logger.warning("Context menu requested before tray menu is initialized")
+            return
         self.tray_menu.menu.exec_(self.countdown_label.mapToGlobal(position))
 
     def mousePressEvent(self, event):
