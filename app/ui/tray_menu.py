@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMenu, QAction, QSystemTrayIcon, QStyle, QApplication
-from PyQt5.QtGui import QIcon
 import os
+from app.utils.image import transparent_icon
 from app.utils.logger import logger
 
 
@@ -17,7 +17,7 @@ class TrayMenu:
 
     def _setup_icon(self, icon_file):
         if os.path.exists(icon_file):
-            self.tray_icon.setIcon(QIcon(icon_file))
+            self.tray_icon.setIcon(transparent_icon(icon_file))
             logger.debug(f"Tray icon set from: {icon_file}")
         else:
             # 找不到图标文件时用 Qt 框架内置的标准图标兜底。

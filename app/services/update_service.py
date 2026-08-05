@@ -79,7 +79,10 @@ class UpdateService:
             return __version__
         except Exception as e:
             logger.error(f"Error getting current version: {e}")
-            return "1.0.0"
+            # 无法确定版本时返回 None（而非静默回退到 "1.0.0"），
+            # 否则 current 会被当成旧版本，GitHub latest 永远比它新，
+            # 导致每次启动都误判有更新。
+            return None
 
     def check_for_updates(self):
         """检查更新。
@@ -90,6 +93,9 @@ class UpdateService:
         """
         try:
             current_version = self.get_current_version()
+            if not current_version:
+                logger.warning("Cannot determine current version, skipping update check")
+                return False, None, None
             logger.info(f"Checking for updates, current version: {current_version}")
             response = requests.get(self.GITHUB_API_URL, timeout=15)
             response.raise_for_status()

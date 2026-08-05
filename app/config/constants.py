@@ -24,6 +24,25 @@ def get_resource_dir():
 
 RESOURCE_DIR = get_resource_dir()
 
+
+def resolve_resource(rel_path):
+    """解析资源文件路径：优先用可写目录（exe 旁 / 项目根）下用户放置的同名资源，
+    找不到再回退到内置资源（_MEIPASS）。
+    这样用户可以把自定义图片放到 exe 旁边的 images/ 文件夹里覆盖默认资源。"""
+    local = os.path.join(BASE_DIR, rel_path)
+    if os.path.exists(local):
+        return local
+    return os.path.join(RESOURCE_DIR, rel_path)
+
+
+def resolve_resource_dir(rel_path):
+    """解析资源目录：优先用可写目录下已存在的同名目录，否则回退到内置目录。"""
+    local = os.path.join(BASE_DIR, rel_path)
+    if os.path.isdir(local):
+        return local
+    return os.path.join(RESOURCE_DIR, rel_path)
+
+
 # 统一配置文件
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
@@ -33,10 +52,10 @@ OLD_REMINDER_SETTINGS_FILE = os.path.join(BASE_DIR, "reminder_settings.txt")
 
 START_TIME_FILE = os.path.join(BASE_DIR, "start_time.txt")
 LOG_FILE = os.path.join(BASE_DIR, "app.log")
-ICON_FILE = os.path.join(RESOURCE_DIR, "images", "icon.png")
+ICON_FILE = resolve_resource("images/icon.png")
 
-DEFAULT_TIMER_IMAGE = os.path.join(RESOURCE_DIR, "images", "timer1.png")
-IMAGE_DIRECTORY = os.path.join(RESOURCE_DIR, "images", "timers")
+DEFAULT_TIMER_IMAGE = resolve_resource("images/timer1.png")
+IMAGE_DIRECTORY = resolve_resource_dir("images/timers")
 
 # 源码运行时保证图片目录存在；打包运行时图片由 --add-data 提供，无需创建
 if not getattr(sys, 'frozen', False):

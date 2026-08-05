@@ -6,7 +6,7 @@
   "job_record_before_end_minutes": 60,
   "reminders": {
     "checkin_reminder": true,
-    "job_record_reminder": false,
+    "job_record_reminder": true,
     "checkout_reminder": true
   }
 }

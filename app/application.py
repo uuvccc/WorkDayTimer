@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtGui import QIcon
+from app.utils.image import transparent_icon
 
 from app.main_window import MainWindow
 from app.config.constants import ICON_FILE
@@ -49,7 +49,7 @@ class MiniToolsApplication:
                 logger.debug("Windows AppUserModelID set")
 
             if ICON_FILE and __import__('os').path.exists(ICON_FILE):
-                self.app.setWindowIcon(QIcon(ICON_FILE))
+                self.app.setWindowIcon(transparent_icon(ICON_FILE))
                 logger.debug(f"Window icon set: {ICON_FILE}")
             else:
                 logger.warning(f"Window icon not found: {ICON_FILE}")
@@ -70,7 +70,7 @@ class MiniToolsApplication:
 
                 tray_icon = QSystemTrayIcon()
                 if ICON_FILE and __import__('os').path.exists(ICON_FILE):
-                    tray_icon.setIcon(QIcon(ICON_FILE))
+                    tray_icon.setIcon(transparent_icon(ICON_FILE))
 
                 menu = QMenu()
                 exit_action = QAction("Exit", None)

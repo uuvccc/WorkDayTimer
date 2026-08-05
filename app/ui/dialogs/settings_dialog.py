@@ -203,7 +203,7 @@ class SettingsDialog(QDialog):
         layout = page.layout()
 
         version = update_service.get_current_version()
-        name = QLabel(f"MiniTools  v{version}")
+        name = QLabel(f"MiniTools  v{version}" if version else "MiniTools")
         name.setFont(QFont(page.font().family(), 13, QFont.Bold))
         layout.addWidget(name)
 

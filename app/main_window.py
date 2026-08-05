@@ -2,7 +2,7 @@ import os
 import random
 import datetime
 from PyQt5.QtCore import Qt, QTimer, QEvent
-from PyQt5.QtGui import QPixmap, QFont, QIcon
+from app.utils.image import transparent_pixmap
 from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog, QSystemTrayIcon
 
 from app.config.constants import (
@@ -31,7 +31,7 @@ class MainWindow(QWidget):
             logger.debug("Setting up UI components")
             self.countdown_label = QLabel(self)
             self.setFocusPolicy(Qt.StrongFocus)
-            self.countdown_label.setPixmap(QPixmap(DEFAULT_TIMER_IMAGE).scaled(
+            self.countdown_label.setPixmap(transparent_pixmap(DEFAULT_TIMER_IMAGE).scaled(
                 60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
             self.countdown_label.setContextMenuPolicy(Qt.CustomContextMenu)
             self.countdown_label.customContextMenuRequested.connect(self.show_context_menu)
@@ -146,7 +146,7 @@ class MainWindow(QWidget):
             if all_images:
                 random_image = random.choice(all_images)
                 image_path = os.path.join(IMAGE_DIRECTORY, random_image)
-                self.countdown_label.setPixmap(QPixmap(image_path).scaled(
+                self.countdown_label.setPixmap(transparent_pixmap(image_path).scaled(
                     60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
         display_text = '           : {:.0f} ✔ {}\n'.format(seconds, self.timer_expiry.minute)
