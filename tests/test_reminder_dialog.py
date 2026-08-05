@@ -172,17 +172,20 @@ class TestOtherDialogs(unittest.TestCase):
         ReminderDialog.show_custom_timer()
         self.mock_exec.assert_called_once()
 
-    def test_show_update_available_yes(self):
+    def test_show_update_available_returns_widget(self):
         from app.ui.dialogs.reminder_dialog import ReminderDialog
-        with patch('PyQt5.QtWidgets.QMessageBox.question', return_value=QMessageBox.Yes):
-            result = ReminderDialog.show_update_available()
-            self.assertTrue(result)
+        from PyQt5.QtWidgets import QWidget
+        result = ReminderDialog.show_update_available(countdown_seconds=0)
+        self.assertIsInstance(result, QWidget)
+        result.close()
 
-    def test_show_update_available_no(self):
+    def test_show_update_available_defer_callback_on_close(self):
         from app.ui.dialogs.reminder_dialog import ReminderDialog
-        with patch('PyQt5.QtWidgets.QMessageBox.question', return_value=QMessageBox.No):
-            result = ReminderDialog.show_update_available()
-            self.assertFalse(result)
+        deferred = [False]
+        dialog = ReminderDialog.show_update_available(
+            countdown_seconds=0, on_defer=lambda: deferred.__setitem__(0, True))
+        dialog.close()
+        self.assertTrue(deferred[0])
 
 
 if __name__ == '__main__':

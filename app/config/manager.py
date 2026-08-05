@@ -1,10 +1,12 @@
 import json
 import os
+import datetime
 from app.config.constants import (
     SETTINGS_FILE,
     OLD_FLEXIBLE_MODE_FILE,
     OLD_REMINDER_SETTINGS_FILE,
     DEFAULT_SETTINGS,
+    DEFER_UPDATE_DAYS,
 )
 from app.utils.logger import logger
 
@@ -17,6 +19,8 @@ class ConfigManager:
         self._load()
         logger.info(f"ConfigManager loaded: flexible={self.is_flexible}, "
                     f"startup={self.run_on_startup}, work_hours={self.work_hours}, "
+                    f"auto_check_update={self.auto_check_update}, "
+                    f"check_update_delay={self.check_update_delay}, "
                     f"reminders={self.reminder_settings}")
 
     # ── 文件读写 ──────────────────────────────────────────
@@ -112,6 +116,63 @@ class ConfigManager:
         self._save()
         logger.info(f"run_on_startup changed: {old} -> {value}")
 
+    # ── Auto Check Update ────────────────────────────────
+
+    @property
+    def auto_check_update(self) -> bool:
+        return self._settings.get("auto_check_update", True)
+
+    @auto_check_update.setter
+    def auto_check_update(self, value: bool):
+        old = self._settings.get("auto_check_update", True)
+        self._settings["auto_check_update"] = value
+        self._save()
+        logger.info(f"auto_check_update changed: {old} -> {value}")
+
+    @property
+    def check_update_delay(self) -> int:
+        return self._settings.get("check_update_delay", 10)
+
+    @check_update_delay.setter
+    def check_update_delay(self, value: int):
+        old = self._settings.get("check_update_delay", 10)
+        self._settings["check_update_delay"] = value
+        self._save()
+        logger.info(f"check_update_delay changed: {old} -> {value}")
+
+    def should_auto_check(self) -> bool:
+        """是否应该执行自动检测：开关打开 且 defer 已过期/不存在"""
+        if not self.auto_check_update:
+            return False
+        defer_until = self._settings.get("defer_update_until")
+        if defer_until is None:
+            return True
+        try:
+            defer_dt = datetime.datetime.fromisoformat(defer_until)
+            if datetime.datetime.now() < defer_dt:
+                logger.info(f"Update check deferred until {defer_until}, skipping")
+                return False
+            # defer 已过期，清除
+            self._settings["defer_update_until"] = None
+            self._save()
+            return True
+        except (ValueError, TypeError):
+            return True
+
+    def defer_update(self):
+        """用户选择“下次提醒”，7 天内不再自动检测"""
+        until = (datetime.datetime.now()
+                 + datetime.timedelta(days=DEFER_UPDATE_DAYS)).isoformat()
+        self._settings["defer_update_until"] = until
+        self._save()
+        logger.info(f"Update check deferred until {until}")
+
+    def clear_defer(self):
+        """清除 defer 记录（完成更新后调用）"""
+        self._settings.pop("defer_update_until", None)
+        self._save()
+        logger.debug("Update defer cleared")
+
     # ── Work Hours ────────────────────────────────────────
 
     @property
@@ -175,6 +236,8 @@ class ConfigManager:
         return {
             "flexible_mode": self.is_flexible,
             "run_on_startup": self.run_on_startup,
+            "auto_check_update": self.auto_check_update,
+            "check_update_delay": self.check_update_delay,
             "work_hours": self.work_hours,
             "fixed_start_hour": self.fixed_start_hour,
             "job_record_before_end_minutes": self.job_record_before_end_minutes,
@@ -182,6 +245,7 @@ class ConfigManager:
         }
 
     def apply_changes(self, flexible_mode=None, run_on_startup=None,
+                      auto_check_update=None, check_update_delay=None,
                       work_hours=None, fixed_start_hour=None,
                       job_record_before_end_minutes=None, reminders=None):
         """批量写入（避免多次 save）"""
@@ -192,6 +256,12 @@ class ConfigManager:
         if run_on_startup is not None:
             changes.append(f"run_on_startup: {self._settings.get('run_on_startup')} -> {run_on_startup}")
             self._settings["run_on_startup"] = run_on_startup
+        if auto_check_update is not None:
+            changes.append(f"auto_check_update: {self._settings.get('auto_check_update')} -> {auto_check_update}")
+            self._settings["auto_check_update"] = auto_check_update
+        if check_update_delay is not None:
+            changes.append(f"check_update_delay: {self._settings.get('check_update_delay')} -> {check_update_delay}")
+            self._settings["check_update_delay"] = check_update_delay
         if work_hours is not None:
             changes.append(f"work_hours: {self._settings.get('work_hours')} -> {work_hours}")
             self._settings["work_hours"] = work_hours

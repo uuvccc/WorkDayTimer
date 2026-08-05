@@ -23,7 +23,7 @@ class MainWindow(QWidget):
         self._setup_tray_menu()
         self._setup_timers()
         self._setup_keyboard_hook()
-        self._check_for_updates()
+        self._schedule_auto_update_check()
         logger.info("MainWindow initialization complete")
 
     def _setup_ui(self):
@@ -115,6 +115,15 @@ class MainWindow(QWidget):
         logger.debug("Setting up keyboard hook")
         keyboard_service.set_enter_key_callback(self.toggle_qq_window)
         keyboard_service.start_listening()
+
+    def _schedule_auto_update_check(self):
+        """根据配置延迟调度自动更新检测"""
+        if not config_manager.should_auto_check():
+            logger.info("Auto update check is disabled or deferred, skipping")
+            return
+        delay_ms = config_manager.check_update_delay * 1000
+        logger.info(f"Scheduling auto update check in {config_manager.check_update_delay}s")
+        QTimer.singleShot(delay_ms, self._check_for_updates)
 
     def _check_for_updates(self):
         import threading
@@ -359,8 +368,29 @@ class MainWindow(QWidget):
 
     def event(self, event):
         if event.type() == QEvent.User:
-            logger.info("Update available event received, prompting user")
-            if ReminderDialog.show_update_available(self):
-                self.update_application()
+            logger.info("Update available event received, showing non-modal dialog")
+            ReminderDialog.show_update_available(
+                parent=self,
+                countdown_seconds=config_manager.check_update_delay,
+                on_update=self._on_update_now,
+                on_defer=self._on_defer_update,
+                on_disable=self._on_disable_update,
+            )
             return True
         return super().event(event)
+
+    def _on_update_now(self):
+        """用户选择立即更新"""
+        logger.info("User chose: update now")
+        config_manager.clear_defer()
+        self.update_application()
+
+    def _on_defer_update(self):
+        """用户选择下次提醒，7 天内不再自动检测"""
+        logger.info("User chose: defer update")
+        config_manager.defer_update()
+
+    def _on_disable_update(self):
+        """用户选择不再提示，关闭自动检测"""
+        logger.info("User chose: disable auto update")
+        config_manager.auto_check_update = False

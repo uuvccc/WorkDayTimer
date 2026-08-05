@@ -1,6 +1,9 @@
 {
   "flexible_mode": false,
   "run_on_startup": true,
+  "auto_check_update": true,
+  "check_update_delay": 10,
+  "defer_update_until": null,
   "work_hours": 8.5,
   "fixed_start_hour": 9.0,
   "job_record_before_end_minutes": 60,

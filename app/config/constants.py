@@ -77,11 +77,16 @@ JOB_DIALOG_SIZE_HEIGHT = 700
 DEFAULT_WORK_HOURS = 8.5
 DEFAULT_FIXED_START_HOUR = 9.0
 DEFAULT_JOB_RECORD_BEFORE_END_MINUTES = 60
+DEFAULT_CHECK_UPDATE_DELAY = 10
+DEFER_UPDATE_DAYS = 7
 
 # 默认设置
 DEFAULT_SETTINGS = {
     "flexible_mode": False,
     "run_on_startup": False,
+    "auto_check_update": True,
+    "check_update_delay": DEFAULT_CHECK_UPDATE_DELAY,
+    "defer_update_until": None,
     "work_hours": DEFAULT_WORK_HOURS,
     "fixed_start_hour": DEFAULT_FIXED_START_HOUR,
     "job_record_before_end_minutes": DEFAULT_JOB_RECORD_BEFORE_END_MINUTES,

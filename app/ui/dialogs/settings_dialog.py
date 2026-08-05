@@ -193,6 +193,26 @@ class SettingsDialog(QDialog):
         desc.setStyleSheet("color: #666; margin-top: 4px;")
         page.layout().addWidget(self.startup_checkbox)
         page.layout().addWidget(desc)
+
+        page.layout().addSpacing(12)
+
+        # ── Auto check update ──
+        self.auto_update_checkbox = QCheckBox("Automatically check for updates on startup")
+        page.layout().addWidget(self.auto_update_checkbox)
+
+        delay_row = QHBoxLayout()
+        delay_label = QLabel("Delay before checking:")
+        delay_label.setStyleSheet("color: #555; margin-top: 4px;")
+        self.update_delay_spin = QSpinBox()
+        self.update_delay_spin.setRange(0, 300)
+        self.update_delay_spin.setSingleStep(5)
+        self.update_delay_spin.setSuffix(" s")
+        self.update_delay_spin.setFixedWidth(100)
+        delay_row.addWidget(delay_label)
+        delay_row.addWidget(self.update_delay_spin)
+        delay_row.addStretch()
+        page.layout().addLayout(delay_row)
+
         page.layout().addStretch()
         return page
 
@@ -252,12 +272,17 @@ class SettingsDialog(QDialog):
         self.job_record_checkbox.setChecked(config_manager.get_reminder_setting("job_record_reminder"))
         self.checkout_checkbox.setChecked(config_manager.get_reminder_setting("checkout_reminder"))
         self.startup_checkbox.setChecked(system_service.is_run_on_startup())
+        self.auto_update_checkbox.setChecked(config_manager.auto_check_update)
+        self.update_delay_spin.setValue(config_manager.check_update_delay)
 
     def _on_ok(self):
         logger.debug("Settings OK button clicked")
         old_flexible = config_manager.is_flexible
         new_flexible = self.flexible_checkbox.isChecked()
         config_manager.is_flexible = new_flexible
+
+        config_manager.auto_check_update = self.auto_update_checkbox.isChecked()
+        config_manager.check_update_delay = self.update_delay_spin.value()
 
         config_manager.work_hours = self.work_hours_spin.value()
         config_manager.fixed_start_hour = self.fixed_start_spin.value()
@@ -287,6 +312,12 @@ class SettingsDialog(QDialog):
 
     def _on_check_updates(self):
         logger.debug("Check for updates button clicked")
+        if not config_manager.auto_check_update:
+            QMessageBox.information(
+                self, "Update Check Disabled",
+                "Automatic update check is currently disabled.\n"
+                "Please enable it in System settings first.")
+            return
         if self._update_callback:
             self._update_callback()
         else:
