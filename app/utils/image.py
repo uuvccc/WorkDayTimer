@@ -26,11 +26,40 @@ def _from_rgba_array(arr):
     return QPixmap.fromImage(image.copy())
 
 
+def _flood_fill_background(white_mask):
+    """从图像四条边开始 flood fill，标记与边缘连通的背景区域。
+
+    只返回与边缘连通的白色像素，内部白色区域不会被标记为背景。
+    """
+    h, w = white_mask.shape
+    bg = np.zeros((h, w), dtype=bool)
+    # 从四条边上的白色像素开始
+    bg[0, :] = white_mask[0, :]
+    bg[-1, :] = white_mask[-1, :]
+    bg[:, 0] = white_mask[:, 0]
+    bg[:, -1] = white_mask[:, -1]
+
+    # 迭代膨胀直到收敛
+    for _ in range(h + w):
+        expanded = np.zeros_like(bg)
+        expanded[1:, :] |= bg[:-1, :]
+        expanded[:-1, :] |= bg[1:, :]
+        expanded[:, 1:] |= bg[:, :-1]
+        expanded[:, :-1] |= bg[:, 1:]
+        expanded &= white_mask
+        new_bg = bg | expanded
+        if np.array_equal(new_bg, bg):
+            break
+        bg = new_bg
+
+    return bg
+
+
 def transparent_pixmap(path_or_pixmap):
     """加载图片并去掉白色背景，返回 QPixmap。
 
     - 传入路径或 QPixmap 均可；文件不存在或解码失败时原样返回（避免崩溃）。
-    - 只有接近白色的像素变透明，图片主体颜色不受影响；
+    - 只处理与图像边缘连通的白色背景，内部白色像素保持不变；
       抗锯齿边缘按到白色的距离线性过渡，保留半透明轮廓。
     """
     if isinstance(path_or_pixmap, QPixmap):
@@ -53,8 +82,17 @@ def transparent_pixmap(path_or_pixmap):
     alpha_factor = np.clip((dist - TRANSPARENT_DIST) / (OPAQUE_DIST - TRANSPARENT_DIST),
                            0.0, 1.0)
 
-    # 与图片原有的 alpha 相乘（保留原图自带的半透明区域）
-    arr[..., 3] = (arr[..., 3].astype(np.float32) * alpha_factor).astype(np.uint8)
+    # 标记接近白色的像素（用于 flood fill 遍历）
+    is_white = dist < OPAQUE_DIST
+
+    # 从边缘 flood fill，找出与边缘连通的背景区域
+    is_background = _flood_fill_background(is_white)
+
+    # 只对背景区域应用透明化，内部白色像素保持原样
+    orig_alpha = arr[..., 3].astype(np.float32)
+    arr[..., 3] = np.where(is_background,
+                           (orig_alpha * alpha_factor).astype(np.uint8),
+                           arr[..., 3])
 
     return _from_rgba_array(arr)
 
