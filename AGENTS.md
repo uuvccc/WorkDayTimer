@@ -26,6 +26,7 @@ app/services/                    # 各服务均为「类 + 模块级单例」模
   update_service.py              #   GitHub 检查更新 + 代理镜像回退下载 + updater.bat
   keyboard_service.py            #   全局 Enter 键监听
 app/ui/
+  pet_widget.py                  # 桌面宠物显示组件（混合式：头像+环形进度+倒计时）
   tray_menu.py                   # 系统托盘菜单
   dialogs/                       # 各对话框（均为 QWidget/QDialog 子类）
 app/utils/

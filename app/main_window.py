@@ -1,17 +1,12 @@
-import os
-import random
 import datetime
 from PyQt5.QtCore import Qt, QTimer, QEvent
-from app.utils.image import transparent_pixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog, QSystemTrayIcon
+from PyQt5.QtWidgets import QWidget, QMessageBox, QApplication, QDialog, QSystemTrayIcon
 
-from app.config.constants import (
-    ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
-    WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
-)
+from app.config.constants import ICON_FILE, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
 from app.config.manager import config_manager
 from app.services import time_service, system_service, update_service, keyboard_service
 from app.ui import TrayMenu, SettingsDialog, CustomTimerDialog, ReminderDialog
+from app.ui.pet_widget import PetWidget, resolve_state, format_hms, STATE_META
 from app.utils.logger import logger
 
 class MainWindow(QWidget):
@@ -27,26 +22,19 @@ class MainWindow(QWidget):
         logger.info("MainWindow initialization complete")
 
     def _setup_ui(self):
-        try:
-            logger.debug("Setting up UI components")
-            self.countdown_label = QLabel(self)
-            self.setFocusPolicy(Qt.StrongFocus)
-            self.countdown_label.setPixmap(transparent_pixmap(DEFAULT_TIMER_IMAGE).scaled(
-                60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
-            self.countdown_label.setContextMenuPolicy(Qt.CustomContextMenu)
-            self.countdown_label.customContextMenuRequested.connect(self.show_context_menu)
-        except FileNotFoundError:
-            QMessageBox.critical(self, "Error", "Timer icon not found. Please check the path.")
-            import sys
-            sys.exit(1)
+        logger.debug("Setting up UI components")
+        self.setFocusPolicy(Qt.StrongFocus)
+
+        # 宠物显示组件铺满窗口；窗口 flags / 半透明背景只在初始化设置一次
+        self.pet = PetWidget(self)
+        self.pet.setGeometry(0, 0, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT)
+        self.pet.context_menu_requested.connect(self.show_context_menu)
+        self._custom_total = 0
 
         self.display_timer = QTimer(self)
-        self.display_timer.timeout.connect(self.update_timer_display)
-        self.display_timer.start(100)
-        logger.debug("Display timer started (100ms interval)")
-
-        self.time_label = QLabel('Countdown: {}'.format(0), self)
-        self.time_label.setAlignment(Qt.AlignCenter)
+        self.display_timer.timeout.connect(self.update_pet_display)
+        self.display_timer.start(250)
+        logger.debug("Display timer started (250ms interval)")
 
         self.setParent(None)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
@@ -78,7 +66,6 @@ class MainWindow(QWidget):
         checkout_enabled = config_manager.get_reminder_setting('checkout_reminder')
         if checkout_enabled:
             delay = time_service.calculate_remaining_seconds(work_end_time)
-            self.timer_type = delay
             logger.info(f"Checkout reminder enabled, delay={delay:.0f}s "
                         f"({delay/60:.1f}min)")
             self.reminder_timer = QTimer(self)
@@ -140,34 +127,40 @@ class MainWindow(QWidget):
         except Exception as e:
             logger.error(f"Error checking for updates: {e}", exc_info=True)
 
-    def update_timer_display(self):
-        seconds = 0
-        if hasattr(self, 'reminder_timer') and self.reminder_timer and self.reminder_timer.isActive():
-            seconds = self.reminder_timer.remainingTime() / 1000.0
+    def update_pet_display(self):
+        """每 250ms 计算展示数据并推送给 PetWidget（纯显示，无窗口标志重置）。"""
+        remaining_work = time_service.calculate_remaining_seconds(self.timer_expiry)
+        custom_active = hasattr(self, 'custom_timer') and self.custom_timer.isActive()
+        remaining_custom = self.custom_timer.remainingTime() / 1000.0 if custom_active else 0
 
-        custom_timer_seconds = 0
-        if hasattr(self, 'custom_timer') and self.custom_timer and self.custom_timer.isActive():
-            custom_timer_seconds = self.custom_timer.remainingTime() / 1000.0
+        total_work_sec = config_manager.work_hours * 3600
+        work_progress = max(0.0, min(100.0, (1 - remaining_work / total_work_sec) * 100))
 
-        if hasattr(self, 'timer_type') and self.timer_type - seconds > 60:
-            self.timer_type = seconds
-            all_images = [f for f in os.listdir(IMAGE_DIRECTORY) if f.endswith(('.png', '.jpg', '.jpeg'))]
-            if all_images:
-                random_image = random.choice(all_images)
-                image_path = os.path.join(IMAGE_DIRECTORY, random_image)
-                self.countdown_label.setPixmap(transparent_pixmap(image_path).scaled(
-                    60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        state = resolve_state(remaining_work, work_progress, custom_active, total_work_sec)
+        label = STATE_META[state]["label"]
 
-        display_text = '           : {:.0f} ✔ {}\n'.format(seconds, self.timer_expiry.minute)
-        if custom_timer_seconds > 0:
-            display_text += '           : {:.0f}s'.format(custom_timer_seconds)
+        if custom_active:
+            remaining = remaining_custom
+            custom_progress = (1 - remaining_custom / self._custom_total) * 100 if self._custom_total else 0.0
+            progress = max(0.0, min(100.0, custom_progress))
+            status = "{} · 剩余 {} · {}%".format(label, format_hms(remaining), int(progress))
+        elif state == "done":
+            remaining, progress = 0, 100.0
+            status = "{} · 今天辛苦了".format(label)
+        elif state == "idle":
+            remaining, progress = remaining_work, 0.0
+            status = "{} · 距离开始还有 {}".format(label, format_hms(remaining - total_work_sec))
+        elif state == "near_end":
+            remaining, progress = remaining_work, work_progress
+            status = "{} · 只剩 {} 分钟".format(label, int(remaining // 60))
+        else:  # working
+            remaining, progress = remaining_work, work_progress
+            elapsed = total_work_sec - remaining_work
+            status = "{} · 已工作 {}h{}m · {}%".format(
+                label, int(elapsed // 3600), int((elapsed % 3600) // 60), int(progress))
 
-        self.time_label.setText(display_text)
-        self.time_label.adjustSize()
-
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.show()
+        tooltip = "预计下班 {}".format(self.timer_expiry.strftime("%H:%M"))
+        self.pet.set_view(state, progress, remaining, status, tooltip)
 
     def show_checkin_reminder(self):
         logger.info("Showing check-in reminder dialog")
@@ -207,6 +200,7 @@ class MainWindow(QWidget):
             self.custom_timer.stop()
             logger.debug("Stopped previous custom timer")
 
+        self._custom_total = minutes * 60
         self.custom_timer = QTimer(self)
         self.custom_timer.timeout.connect(self.show_custom_timer_reminder)
         self.custom_timer.setSingleShot(True)
@@ -349,18 +343,11 @@ class MainWindow(QWidget):
         if reason == QSystemTrayIcon.Trigger:
             self.move_to_front()
 
-    def show_context_menu(self, position):
+    def show_context_menu(self, global_pos):
         if not hasattr(self, 'tray_menu'):
             logger.warning("Context menu requested before tray menu is initialized")
             return
-        self.tray_menu.menu.exec_(self.countdown_label.mapToGlobal(position))
-
-    def mousePressEvent(self, event):
-        self.offset = event.pos()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton:
-            self.move(event.globalPos() - self.offset)
+        self.tray_menu.menu.exec_(global_pos)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:

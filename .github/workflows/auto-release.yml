@@ -1,11 +1,13 @@
-# This workflow will automatically create a release on every push to master branch
-# and upload the built executable as a release asset
+# This workflow will automatically create a release on every push to master
+# and feature branches, and upload the built executable as a release asset.
+# master → stable release; other branches → prerelease（分支后缀 tag，避免撞车，
+# 且不进入正式更新通道 /releases/latest）。
 
 name: Auto Release
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "feature/pet-redesign" ]
 
 permissions:
   contents: write
@@ -59,6 +61,24 @@ jobs:
         Write-Host "Injected version: $newVersion"
         echo "::set-output name=version::$newVersion"
 
+    - name: Generate branch metadata
+      id: branch
+      run: |
+        # master → 正式发布（无后缀 tag、非 prerelease）
+        # 其他分支 → prerelease，tag 追加分支后缀避免与正式版 tag 撞车，
+        # 且 /releases/latest 更新检查会忽略 prerelease，不干扰正式版用户。
+        $branch = "${{ github.ref_name }}"
+        if ($branch -eq "master") {
+          echo "::set-output name=suffix::"
+          echo "::set-output name=prerelease::false"
+          Write-Host "Release type: stable (master)"
+        } else {
+          $slug = ($branch -replace '[^a-zA-Z0-9.-]', '-')
+          echo "::set-output name=suffix::-${slug}"
+          echo "::set-output name=prerelease::true"
+          Write-Host "Release type: prerelease ($branch)"
+        }
+
     - name: Build with PyInstaller
       run: |
         # --add-data 必须带上 images 目录，否则 exe 运行时找不到托盘图标和宠物图片
@@ -70,15 +90,15 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ steps.version.outputs.version }}
-        release_name: Release v${{ steps.version.outputs.version }}
+        tag_name: v${{ steps.version.outputs.version }}${{ steps.branch.outputs.suffix }}
+        release_name: Release v${{ steps.version.outputs.version }}${{ steps.branch.outputs.suffix }}
         body: |
           Automated release for commit ${{ github.sha }}
           - Built on ${{ runner.os }}
           - Commit: ${{ github.sha }}
           - Author: ${{ github.actor }}
         draft: false
-        prerelease: false
+        prerelease: ${{ steps.branch.outputs.prerelease }}
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1

@@ -39,6 +39,11 @@ class MiniToolsApplication:
             self._setup_exception_handler()
             logger.debug("Exception handler installed")
 
+            # 高 DPI 支持必须在 QApplication 创建前设置（宠物环形在高分屏上才清晰）
+            from PyQt5.QtCore import Qt
+            QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+            QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
             self.app = QApplication(sys.argv)
             self.app.setQuitOnLastWindowClosed(False)
             logger.debug("QApplication created")
