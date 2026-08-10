@@ -1,8 +1,33 @@
+import os
+import tempfile
 import unittest
 from unittest.mock import patch, mock_open
+
+from app.config import manager as config_manager_module
 from app.config.manager import ConfigManager
 
 class TestConfigManager(unittest.TestCase):
+    """注意：set_reminder_setting / toggle / setter 会 _save() 写盘。
+    必须把 SETTINGS_FILE 重定向到临时文件，避免测试把用户的 settings.json 写坏。"""
+
+    @classmethod
+    def setUpClass(cls):
+        # 记录真实路径，测试期间改指向临时文件
+        cls._orig_settings_file = config_manager_module.SETTINGS_FILE
+        cls._tmp_settings_file = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False, mode="w", encoding="utf-8"
+        )
+        cls._tmp_settings_file.close()
+        config_manager_module.SETTINGS_FILE = cls._tmp_settings_file.name
+
+    @classmethod
+    def tearDownClass(cls):
+        config_manager_module.SETTINGS_FILE = cls._orig_settings_file
+        try:
+            os.remove(cls._tmp_settings_file.name)
+        except FileNotFoundError:
+            pass
+
     def test_default_reminder_settings(self):
         with patch('builtins.open', side_effect=FileNotFoundError):
             config = ConfigManager()
