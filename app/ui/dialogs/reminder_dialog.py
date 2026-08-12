@@ -3,32 +3,51 @@ from PyQt5.QtWidgets import (QMessageBox, QPushButton, QWidget, QApplication,
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer
 from app.utils.logger import logger
+from app.ui.dialogs.common import FancyDialog
+
+
+def _center_on_screen(dialog, width=None, height=None):
+    """把 dialog 居中到主屏幕（primary screen）。
+
+    - 指定 width/height 时先 resize（保留原对话框尺寸语义），
+    - 否则用 adjustSize() 按内容自适应大小。
+    """
+    screen = QApplication.primaryScreen().availableGeometry()
+    if width and height:
+        dialog.resize(width, height)
+    else:
+        dialog.adjustSize()
+    dialog.move(
+        screen.x() + (screen.width() - dialog.width()) // 2,
+        screen.y() + (screen.height() - dialog.height()) // 2,
+    )
+
 
 class ReminderDialog:
     @staticmethod
     def show_checkin(parent=None):
         logger.debug("Showing check-in reminder dialog")
-        dialog = QMessageBox(parent)
-        # 必须保留 Qt.Dialog 窗口类型位：否则 setWindowFlags 会把类型掩码当作
-        # Qt.Widget，QMessageBox 从顶层对话框降级成父窗口的内嵌子控件，
-        # 被 200x200 的宠物窗口裁剪掉，表现为"弹不出来"。
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
-        dialog.setWindowTitle("Microsoft Visual Studio")
-        dialog.setText("checkin")
-        dialog.setIcon(QMessageBox.Critical)
-        dialog.addButton(QMessageBox.Close)
-        dialog.setGeometry(700, 500, 900, 700)
+        dialog = FancyDialog("打卡提醒 · Check-in", "sunrise", parent)
+        dialog.add_hero(
+            "⏰",
+            "早上好，记得打卡！",
+            "Good morning! Don't forget to check in & start your day.",
+        )
+        dialog.add_primary_button("好的，开工 👍", on_click=dialog.accept)
+        dialog._center_on_screen()
         dialog.exec_()
 
     @staticmethod
     def show_job_record(parent=None):
         logger.debug("Showing job record reminder dialog")
-        dialog = QMessageBox(parent)
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-        dialog.setWindowTitle("Work Record Reminder")
-        dialog.setText("Please remember to record your work progress!")
-        dialog.setIcon(QMessageBox.Information)
-        dialog.addButton(QMessageBox.Ok)
+        dialog = FancyDialog("工作记录提醒 · Work Log", "ocean", parent)
+        dialog.add_hero(
+            "📝",
+            "快到点了，记录一下今天的工作吧",
+            "Almost done for today — remember to log your progress.",
+        )
+        dialog.add_primary_button("知道了", on_click=dialog.accept)
+        dialog._center_on_screen()
         dialog.exec_()
 
     @staticmethod
@@ -58,7 +77,7 @@ class ReminderDialog:
         dialog.addButton(QMessageBox.Ignore)
 
         dialog.setMinimumSize(400, 200)
-        dialog.setGeometry(700, 500, 750, 550)
+        _center_on_screen(dialog, 750, 550)
 
         font = QFont()
         font.setPointSize(12)
@@ -74,6 +93,7 @@ class ReminderDialog:
         dialog.setText("Custom timer countdown finished!")
         dialog.setIcon(QMessageBox.Information)
         dialog.addButton(QMessageBox.Ok)
+        _center_on_screen(dialog)
         dialog.exec_()
 
     @staticmethod
@@ -92,12 +112,8 @@ class ReminderDialog:
         dialog.setWindowTitle("Update Available")
         dialog.resize(420, 220)
 
-        # 居中屏幕
-        screen = QApplication.primaryScreen().availableGeometry()
-        dialog.move(
-            (screen.width() - dialog.width()) // 2,
-            (screen.height() - dialog.height()) // 2,
-        )
+        # 居中到主屏幕
+        _center_on_screen(dialog, 420, 220)
 
         font = QFont()
         font.setPointSize(12)

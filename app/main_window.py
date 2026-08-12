@@ -2,16 +2,16 @@ import os
 import random
 import datetime
 from PyQt5.QtCore import Qt, QTimer, QEvent
-from app.utils.image import transparent_pixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog, QSystemTrayIcon
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog, QSystemTrayIcon, QVBoxLayout
 
 from app.config.constants import (
-    ICON_FILE, IMAGE_DIRECTORY, DEFAULT_TIMER_IMAGE,
-    WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
+    ICON_FILE, IMAGE_DIRECTORY, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
 )
 from app.config.manager import config_manager
 from app.services import time_service, system_service, update_service, keyboard_service
-from app.ui import TrayMenu, SettingsDialog, CustomTimerDialog, ReminderDialog
+from app.ui import TrayMenu, SettingsDialog, CustomTimerDialog, ReminderDialog, ascii_art
+from app.utils.image import transparent_pixmap
 from app.utils.logger import logger
 
 class MainWindow(QWidget):
@@ -27,26 +27,41 @@ class MainWindow(QWidget):
         logger.info("MainWindow initialization complete")
 
     def _setup_ui(self):
-        try:
-            logger.debug("Setting up UI components")
-            self.countdown_label = QLabel(self)
-            self.setFocusPolicy(Qt.StrongFocus)
-            self.countdown_label.setPixmap(transparent_pixmap(DEFAULT_TIMER_IMAGE).scaled(
-                60, 60, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
-            self.countdown_label.setContextMenuPolicy(Qt.CustomContextMenu)
-            self.countdown_label.customContextMenuRequested.connect(self.show_context_menu)
-        except FileNotFoundError:
-            QMessageBox.critical(self, "Error", "Timer icon not found. Please check the path.")
-            import sys
-            sys.exit(1)
+        logger.debug("Setting up UI components")
+        self.setFocusPolicy(Qt.StrongFocus)
+
+        # 图片模式：随机轮换图片
+        self.countdown_label = QLabel(self)
+        self.countdown_label.setAlignment(Qt.AlignCenter)
+        self.countdown_label.setStyleSheet("background: transparent;")
+        self.countdown_label.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.countdown_label.customContextMenuRequested.connect(self.show_context_menu)
+
+        # ASCII 模式：字符动画
+        self.ascii_label = QLabel(self)
+        self.ascii_label.setFont(QFont("Consolas", 10))
+        self.ascii_label.setAlignment(Qt.AlignCenter)
+        self.ascii_label.setWordWrap(False)
+        self.ascii_label.setTextFormat(Qt.PlainText)
+        self.ascii_label.setStyleSheet("background: transparent; color: #FFFFFF;")
+        self.ascii_label.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.ascii_label.customContextMenuRequested.connect(self.show_context_menu)
 
         self.display_timer = QTimer(self)
         self.display_timer.timeout.connect(self.update_timer_display)
         self.display_timer.start(100)
         logger.debug("Display timer started (100ms interval)")
 
-        self.time_label = QLabel('Countdown: {}'.format(0), self)
+        self.time_label = QLabel('', self)
         self.time_label.setAlignment(Qt.AlignCenter)
+        self.time_label.setStyleSheet("background: transparent; color: rgba(255,255,255,0.85); font-size: 9px;")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(6, 6, 6, 4)
+        layout.setSpacing(2)
+        layout.addWidget(self.countdown_label, 1, Qt.AlignCenter)
+        layout.addWidget(self.ascii_label, 1)
+        layout.addWidget(self.time_label)
 
         self.setParent(None)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
@@ -57,6 +72,8 @@ class MainWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.show()
         logger.debug(f"Window positioned at ({x}, {y}), size=({WINDOW_SIZE_WIDTH}x{WINDOW_SIZE_HEIGHT})")
+
+        self._setup_ascii_animation()
 
     def _setup_timers(self):
         current_time = datetime.datetime.now()
@@ -149,25 +166,155 @@ class MainWindow(QWidget):
         if hasattr(self, 'custom_timer') and self.custom_timer and self.custom_timer.isActive():
             custom_timer_seconds = self.custom_timer.remainingTime() / 1000.0
 
-        if hasattr(self, 'timer_type') and self.timer_type - seconds > 60:
-            self.timer_type = seconds
-            all_images = [f for f in os.listdir(IMAGE_DIRECTORY) if f.endswith(('.png', '.jpg', '.jpeg'))]
-            if all_images:
-                random_image = random.choice(all_images)
-                image_path = os.path.join(IMAGE_DIRECTORY, random_image)
-                self.countdown_label.setPixmap(transparent_pixmap(image_path).scaled(
-                    60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-        display_text = '           : {:.0f} ✔ {}\n'.format(seconds, self.timer_expiry.minute)
+        display_text = '⏳ {:.0f}s'.format(seconds)
         if custom_timer_seconds > 0:
-            display_text += '           : {:.0f}s'.format(custom_timer_seconds)
-
+            display_text += '  ⏱️ {:.0f}s'.format(custom_timer_seconds)
         self.time_label.setText(display_text)
         self.time_label.adjustSize()
+
+        # 每 60s 重新掷一次显示模式：一半概率图片 / 一半概率 ASCII 动画
+        now = datetime.datetime.now()
+        if getattr(self, '_last_mode_roll', None) is None:
+            self._last_mode_roll = now
+        elif (now - self._last_mode_roll).total_seconds() > 60:
+            self._last_mode_roll = now
+            self._roll_mode()
+
+        # 按应用状态刷新 ASCII 场景（待机 / 自定义计时→时钟 / 快下班→犯困）
+        self._refresh_ascii_scene()
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.show()
+
+    # ── ASCII 动画播放器 ───────────────────────────────────
+
+    def _setup_ascii_animation(self):
+        """初始化显示：随机选待机场景 + 掷一次显示模式（一半图片/一半 ASCII）。"""
+        self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
+        self._scene_name = None
+        self._frame_index = 0
+        self._celebrating = False
+
+        self._ascii_timer = QTimer(self)
+        self._ascii_timer.timeout.connect(self._advance_ascii_frame)
+
+        self._scene_timer = QTimer(self)
+        self._scene_timer.timeout.connect(self._switch_idle_scene)
+        self._scene_timer.start(20000)
+
+        # 启动时掷一次显示模式：一半概率随机图片，一半概率 ASCII 动画
+        self._display_mode = random.choice(['image', 'ascii'])
+        logger.info(f"Display mode rolled: {self._display_mode}")
+        self._apply_mode()
+
+    def _switch_idle_scene(self):
+        """每 20s 换一个待机形象（猫/兔/咖啡/打工人）。"""
+        self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
+
+    def _advance_ascii_frame(self):
+        scene = ascii_art.SCENES[self._scene_name]
+        self._frame_index = (self._frame_index + 1) % len(scene["frames"])
+        self.ascii_label.setText(ascii_art.render_frame(scene, self._frame_index))
+
+    def _set_scene(self, name):
+        """切换场景并重置播放（fps/颜色/文本格式跟着场景走）。"""
+        if self._scene_name == name:
+            return
+        self._scene_name = name
+        self._frame_index = 0
+        scene = ascii_art.SCENES[name]
+        if scene.get("rainbow"):
+            self.ascii_label.setTextFormat(Qt.RichText)
+            self.ascii_label.setStyleSheet("background: transparent;")
+        else:
+            self.ascii_label.setTextFormat(Qt.PlainText)
+            self.ascii_label.setStyleSheet(
+                "background: transparent; color: {};".format(scene["color"]))
+        self._ascii_timer.setInterval(int(1000 / scene["fps"]))
+        self._ascii_timer.start()
+        self._advance_ascii_frame()
+
+    def _ensure_ascii_running(self):
+        """确保 ASCII 播放器在跑（从图片模式切回来时定时器可能已停）。"""
+        if self._scene_name is None:
+            self._set_scene(self._decide_scene())
+        elif not self._ascii_timer.isActive():
+            scene = ascii_art.SCENES[self._scene_name]
+            self._ascii_timer.setInterval(int(1000 / scene["fps"]))
+            self._ascii_timer.start()
+            self._advance_ascii_frame()
+
+    def _apply_mode(self):
+        """按当前 _display_mode 显示：随机图片 或 ASCII 动画，二选一。"""
+        if self._display_mode == 'ascii':
+            self.ascii_label.show()
+            self.countdown_label.hide()
+            self._ensure_ascii_running()
+        else:
+            self.countdown_label.show()
+            self.ascii_label.hide()
+            self._ascii_timer.stop()
+            self._pick_random_image()
+
+    def _roll_mode(self):
+        """每 60s 重新掷一次显示模式：一半概率图片 / 一半概率 ASCII。"""
+        self._display_mode = random.choice(['image', 'ascii'])
+        logger.info(f"Display mode re-rolled: {self._display_mode}")
+        self._apply_mode()
+
+    def _pick_random_image(self):
+        """从 images/timers/ 随机选一张图显示（保留原有随机换图逻辑）。"""
+        try:
+            image_files = [
+                f for f in os.listdir(IMAGE_DIRECTORY)
+                if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+            ]
+        except OSError as e:
+            logger.error(f"Failed to list image directory: {e}")
+            image_files = []
+        if not image_files:
+            logger.warning("No pet images found, falling back to ASCII animation")
+            self._display_mode = 'ascii'
+            self._apply_mode()
+            return
+        image_path = os.path.join(IMAGE_DIRECTORY, random.choice(image_files))
+        pixmap = transparent_pixmap(image_path).scaled(
+            60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.countdown_label.setPixmap(pixmap)
+        logger.debug(f"Picked pet image: {os.path.basename(image_path)}")
+
+    def _refresh_ascii_scene(self):
+        """按应用状态决定目标场景并切换（每 100ms 刷新，切场景很廉价）。
+
+        仅 ASCII 模式生效；图片模式下不动动画（等 _roll_mode 掷回来）。
+        """
+        if not hasattr(self, '_display_mode') or self._display_mode != 'ascii':
+            return
+        target = self._decide_scene()
+        self._set_scene(target)
+
+    def _decide_scene(self):
+        custom = getattr(self, 'custom_timer', None)
+        if custom is not None and custom.isActive():
+            return 'clock'
+        if self._celebrating:
+            return 'celebrate'
+        rem = getattr(self, 'reminder_timer', None)
+        if rem is not None and rem.isActive() and rem.remainingTime() < 10 * 60 * 1000:
+            return 'sleepy'
+        return self._idle_scene
+
+    def _celebrate_once(self):
+        """完工/倒计时结束：切到 ASCII 庆祝动画播几秒，再回待机。"""
+        self._celebrating = True
+        self._display_mode = 'ascii'
+        self._apply_mode()
+        self._refresh_ascii_scene()
+        QTimer.singleShot(4000, self._stop_celebrate)
+
+    def _stop_celebrate(self):
+        self._celebrating = False
 
     def show_checkin_reminder(self):
         logger.info("Showing check-in reminder dialog")
@@ -215,6 +362,7 @@ class MainWindow(QWidget):
     def show_custom_timer_reminder(self):
         logger.info("Custom timer expired, showing reminder")
         ReminderDialog.show_custom_timer(self)
+        self._celebrate_once()
 
     def update_application(self):
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton
@@ -353,7 +501,7 @@ class MainWindow(QWidget):
         if not hasattr(self, 'tray_menu'):
             logger.warning("Context menu requested before tray menu is initialized")
             return
-        self.tray_menu.menu.exec_(self.countdown_label.mapToGlobal(position))
+        self.tray_menu.menu.exec_(self.sender().mapToGlobal(position))
 
     def mousePressEvent(self, event):
         self.offset = event.pos()

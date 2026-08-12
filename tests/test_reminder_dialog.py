@@ -158,14 +158,18 @@ class TestOtherDialogs(unittest.TestCase):
         self.exec_patcher.stop()
 
     def test_show_checkin(self):
+        from app.ui.dialogs.common import FancyDialog
         from app.ui.dialogs.reminder_dialog import ReminderDialog
-        ReminderDialog.show_checkin()
-        self.mock_exec.assert_called_once()
+        with patch.object(FancyDialog, 'exec_') as mock_exec:
+            ReminderDialog.show_checkin()
+            mock_exec.assert_called_once()
 
     def test_show_job_record(self):
+        from app.ui.dialogs.common import FancyDialog
         from app.ui.dialogs.reminder_dialog import ReminderDialog
-        ReminderDialog.show_job_record()
-        self.mock_exec.assert_called_once()
+        with patch.object(FancyDialog, 'exec_') as mock_exec:
+            ReminderDialog.show_job_record()
+            mock_exec.assert_called_once()
 
     def test_show_custom_timer(self):
         from app.ui.dialogs.reminder_dialog import ReminderDialog

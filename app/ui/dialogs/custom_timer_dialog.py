@@ -1,84 +1,83 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from PyQt5.QtGui import QFont, QIntValidator
 from PyQt5.QtCore import Qt
+from app.ui.dialogs.common import FancyDialog, quick_button_qss, ghost_button_qss
 from app.utils.logger import logger
 
-class CustomTimerDialog(QDialog):
+
+class CustomTimerDialog(FancyDialog):
     def __init__(self, parent=None):
-        super().__init__(parent)
+        super().__init__("自定义计时器 · Custom Timer", "violet", parent)
         logger.debug("CustomTimerDialog opening")
-        self.setWindowTitle("Custom Timer")
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
         self._result_minutes = 0
-        self._setup_ui()
+        self._build_body()
+        self._build_buttons()
+        self._center_on_screen()
 
-    def _setup_ui(self):
-        layout = QVBoxLayout()
+    # ── 内容区 ────────────────────────────────────────────
 
-        input_label = QLabel("Enter minutes:")
+    def _build_body(self):
+        emoji_label = QLabel("⏱️")
+        emoji_label.setStyleSheet("font-size: 36px;")
+        emoji_label.setAlignment(Qt.AlignCenter)
+        self.content_layout.addWidget(emoji_label)
+
+        hint = QLabel("设置倒计时时长（分钟）\nEnter minutes below")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: rgba(255,255,255,0.9); font-size: 13px;")
+        self.content_layout.addWidget(hint)
+
         self.input_field = QLineEdit()
         self.input_field.setAlignment(Qt.AlignCenter)
-        self.input_field.setFont(QFont("Arial", 20))
+        self.input_field.setFont(QFont(self.font().family(), 22, QFont.Bold))
         self.input_field.setText("0")
         self.input_field.setValidator(QIntValidator(0, 999999))
-        layout.addWidget(input_label)
-        layout.addWidget(self.input_field)
+        self.input_field.setStyleSheet(
+            "QLineEdit { background: #ffffff; color: #333; border: none;"
+            "  border-radius: 12px; padding: 10px 14px;"
+            "  font-size: 24px; font-weight: bold; }"
+            "QLineEdit:focus { border: 2px solid rgba(255,255,255,0.9); }"
+        )
+        self.content_layout.addWidget(self.input_field)
 
-        quick_select_layout = QVBoxLayout()
+        self.content_layout.addSpacing(8)
 
-        row1_layout = QHBoxLayout()
-        for i in range(1, 6):
-            btn = QPushButton(str(i))
-            btn.clicked.connect(lambda checked, num=i: self._add_minutes(num))
-            row1_layout.addWidget(btn)
-        quick_select_layout.addLayout(row1_layout)
+        quick_layout = QVBoxLayout()
+        quick_layout.setSpacing(8)
+        rows = [
+            range(1, 6),
+            range(6, 11),
+            [15, 20, 30],
+            [40, 60, 90],
+            [120, 180, 240],
+        ]
+        for values in rows:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            for minutes in values:
+                btn = self.make_button(str(minutes), quick_button_qss())
+                btn.clicked.connect(lambda checked, num=minutes: self._add_minutes(num))
+                row.addWidget(btn)
+            quick_layout.addLayout(row)
+        self.content_layout.addLayout(quick_layout)
 
-        row2_layout = QHBoxLayout()
-        for i in range(6, 11):
-            btn = QPushButton(str(i))
-            btn.clicked.connect(lambda checked, num=i: self._add_minutes(num))
-            row2_layout.addWidget(btn)
-        quick_select_layout.addLayout(row2_layout)
+    # ── 底部按钮行 ───────────────────────────────────────
 
-        row3_layout = QHBoxLayout()
-        for minutes in [15, 20, 30]:
-            btn = QPushButton(f"{minutes}")
-            btn.clicked.connect(lambda checked, num=minutes: self._add_minutes(num))
-            row3_layout.addWidget(btn)
-        quick_select_layout.addLayout(row3_layout)
+    def _build_buttons(self):
+        clear_btn = self.make_button(
+            "清零 Clear", ghost_button_qss(),
+            on_click=lambda: self.input_field.setText("0"),
+        )
+        start_btn = self.make_primary_button("开始 Start", on_click=self._on_ok)
+        cancel_btn = self.make_button("取消 Cancel", ghost_button_qss(), on_click=self.reject)
 
-        row4_layout = QHBoxLayout()
-        for minutes in [40, 60, 90]:
-            btn = QPushButton(f"{minutes}")
-            btn.clicked.connect(lambda checked, num=minutes: self._add_minutes(num))
-            row4_layout.addWidget(btn)
-        quick_select_layout.addLayout(row4_layout)
+        self.button_layout.addWidget(clear_btn)
+        self.button_layout.addStretch()
+        self.button_layout.addWidget(start_btn)
+        self.button_layout.addStretch()
+        self.button_layout.addWidget(cancel_btn)
 
-        row5_layout = QHBoxLayout()
-        for minutes in [120, 180, 240]:
-            btn = QPushButton(f"{minutes}")
-            btn.clicked.connect(lambda checked, num=minutes: self._add_minutes(num))
-            row5_layout.addWidget(btn)
-        quick_select_layout.addLayout(row5_layout)
-
-        clear_button = QPushButton("Clear")
-        clear_button.clicked.connect(lambda: self.input_field.setText("0"))
-        quick_select_layout.addWidget(clear_button)
-
-        layout.addLayout(quick_select_layout)
-
-        button_box = QHBoxLayout()
-        ok_button = QPushButton("OK")
-        cancel_button = QPushButton("Cancel")
-
-        ok_button.clicked.connect(self._on_ok)
-        cancel_button.clicked.connect(self.reject)
-
-        button_box.addWidget(ok_button)
-        button_box.addWidget(cancel_button)
-        layout.addLayout(button_box)
-
-        self.setLayout(layout)
+    # ── 逻辑（保持不变）──────────────────────────────────
 
     def _add_minutes(self, minutes):
         try:
