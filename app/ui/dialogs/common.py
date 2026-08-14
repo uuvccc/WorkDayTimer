@@ -13,20 +13,21 @@ from PyQt5.QtGui import QColor
 
 # ── 配色方案：每个弹窗一套渐变 + 主按钮文字色 ──
 SCHEMES = {
-    # 打卡：早晨暖橙粉
+    # 打卡：早晨暖橙粉（柔和低饱和，白字可读）
     "sunrise": {
-        "gradient": ("#FF9A8B", "#FF6A88"),
-        "accent": "#E05A77",
+        "gradient": ("#B8726A", "#934860"),
+        "accent": "#934860",
     },
-    # 工作记录：冷静蓝青
+    # 工作记录：冷静蓝青（柔和低饱和，白字可读）
     "ocean": {
-        "gradient": ("#4FACFE", "#00C9FF"),
-        "accent": "#0E9BD6",
+        "gradient": ("#5E8FB4", "#41678F"),
+        "accent": "#41678F",
     },
     # 自定义计时器：计时紫蓝
     "violet": {
-        "gradient": ("#8E2DE2", "#4A00E0"),
-        "accent": "#6A2FE0",
+        # 原来 #8E2DE2→#4A00E0 太艳太亮，换成低饱和的柔和淡紫，白字仍可读
+        "gradient": ("#8A72CC", "#5C48A6"),
+        "accent": "#5C48A6",
     },
 }
 

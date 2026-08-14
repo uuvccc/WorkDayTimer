@@ -172,9 +172,11 @@ class TestOtherDialogs(unittest.TestCase):
             mock_exec.assert_called_once()
 
     def test_show_custom_timer(self):
+        from app.ui.dialogs.common import FancyDialog
         from app.ui.dialogs.reminder_dialog import ReminderDialog
-        ReminderDialog.show_custom_timer()
-        self.mock_exec.assert_called_once()
+        with patch.object(FancyDialog, 'exec_') as mock_exec:
+            ReminderDialog.show_custom_timer()
+            mock_exec.assert_called_once()
 
     def test_show_update_available_returns_widget(self):
         from app.ui.dialogs.reminder_dialog import ReminderDialog

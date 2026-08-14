@@ -23,31 +23,59 @@ def _center_on_screen(dialog, width=None, height=None):
     )
 
 
+class CheckinDialog(FancyDialog):
+    """早上打卡提醒。"""
+
+    def __init__(self, parent=None):
+        super().__init__("打卡提醒 · Check-in", "sunrise", parent)
+        self.add_hero(
+            "⏰",
+            "早上好！记得打卡，开启新的一天~",
+            "Good morning! Don't forget to clock in and start your day.",
+        )
+        self.add_primary_button("好的，开工 👍", on_click=self.accept)
+        self._center_on_screen()
+
+
+class JobRecordDialog(FancyDialog):
+    """下班前工作记录提醒。"""
+
+    def __init__(self, parent=None):
+        super().__init__("工作记录提醒 · Work Log", "ocean", parent)
+        self.add_hero(
+            "📝",
+            "快到下班点了，写一下今天的工作记录吧",
+            "Almost off work — remember to log what you've done today.",
+        )
+        self.add_primary_button("知道了", on_click=self.accept)
+        self._center_on_screen()
+
+
+class CustomTimerDoneDialog(FancyDialog):
+    """自定义倒计时结束提醒。"""
+
+    def __init__(self, parent=None):
+        super().__init__("倒计时结束 · Timer Done", "violet", parent)
+        self.add_hero(
+            "⏱️",
+            "倒计时结束啦！",
+            "Your custom countdown has finished. Time for a break?",
+        )
+        self.add_primary_button("好的 👍", on_click=self.accept)
+        self._center_on_screen()
+
+
 class ReminderDialog:
     @staticmethod
     def show_checkin(parent=None):
         logger.debug("Showing check-in reminder dialog")
-        dialog = FancyDialog("打卡提醒 · Check-in", "sunrise", parent)
-        dialog.add_hero(
-            "⏰",
-            "早上好，记得打卡！",
-            "Good morning! Don't forget to check in & start your day.",
-        )
-        dialog.add_primary_button("好的，开工 👍", on_click=dialog.accept)
-        dialog._center_on_screen()
+        dialog = CheckinDialog(parent)
         dialog.exec_()
 
     @staticmethod
     def show_job_record(parent=None):
         logger.debug("Showing job record reminder dialog")
-        dialog = FancyDialog("工作记录提醒 · Work Log", "ocean", parent)
-        dialog.add_hero(
-            "📝",
-            "快到点了，记录一下今天的工作吧",
-            "Almost done for today — remember to log your progress.",
-        )
-        dialog.add_primary_button("知道了", on_click=dialog.accept)
-        dialog._center_on_screen()
+        dialog = JobRecordDialog(parent)
         dialog.exec_()
 
     @staticmethod
@@ -87,13 +115,7 @@ class ReminderDialog:
     @staticmethod
     def show_custom_timer(parent=None):
         logger.debug("Showing custom timer reminder dialog")
-        dialog = QMessageBox(parent)
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-        dialog.setWindowTitle("Custom Timer")
-        dialog.setText("Custom timer countdown finished!")
-        dialog.setIcon(QMessageBox.Information)
-        dialog.addButton(QMessageBox.Ok)
-        _center_on_screen(dialog)
+        dialog = CustomTimerDoneDialog(parent)
         dialog.exec_()
 
     @staticmethod

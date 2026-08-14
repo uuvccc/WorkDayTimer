@@ -1,7 +1,7 @@
 import os
 import random
 import datetime
-from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtCore import Qt, QTimer, QEvent, QObject
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog, QSystemTrayIcon, QVBoxLayout
 
@@ -13,6 +13,35 @@ from app.services import time_service, system_service, update_service, keyboard_
 from app.ui import TrayMenu, SettingsDialog, CustomTimerDialog, ReminderDialog, ascii_art
 from app.utils.image import transparent_pixmap
 from app.utils.logger import logger
+
+
+class _DragFilter(QObject):
+    """让鼠标落在子控件（图片 / ASCII 标签）上也能拖动整个窗口。
+
+    ASCII 模式里 ascii_label 几乎铺满窗口，QLabel 在富文本（rainbow 场景）
+    下会吞掉鼠标事件，导致按下后 MainWindow 收不到 press/move，拖不动。
+    事件过滤器拦截左键按下/移动/释放，直接移动顶层窗口；右键菜单走独立的
+    ContextMenu 事件，不受影响。
+    """
+
+    def __init__(self, window):
+        super().__init__(window)
+        self._window = window
+        self._drag_offset = None
+
+    def eventFilter(self, obj, event):
+        etype = event.type()
+        if etype == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            self._drag_offset = event.globalPos() - self._window.pos()
+            return True
+        if etype == QEvent.MouseMove and event.buttons() & Qt.LeftButton and self._drag_offset is not None:
+            self._window.move(event.globalPos() - self._drag_offset)
+            return True
+        if etype == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            self._drag_offset = None
+            return True
+        return False
+
 
 class MainWindow(QWidget):
     def __init__(self, app):
@@ -38,12 +67,14 @@ class MainWindow(QWidget):
         self.countdown_label.customContextMenuRequested.connect(self.show_context_menu)
 
         # ASCII 模式：字符动画
+        # 字号越小 → 单个字符格子越小 → 同一块动画区域内能容纳更多字符，
+        # 也就是动画“分辨率”越高（配合 ascii_art 里加粗的 2x 网格帧）。
         self.ascii_label = QLabel(self)
-        self.ascii_label.setFont(QFont("Consolas", 10))
+        self.ascii_label.setFont(QFont("Consolas", 6))
         self.ascii_label.setAlignment(Qt.AlignCenter)
         self.ascii_label.setWordWrap(False)
         self.ascii_label.setTextFormat(Qt.PlainText)
-        self.ascii_label.setStyleSheet("background: transparent; color: #FFFFFF;")
+        self.ascii_label.setStyleSheet("background: transparent; color: #000000;")
         self.ascii_label.setContextMenuPolicy(Qt.CustomContextMenu)
         self.ascii_label.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -54,14 +85,22 @@ class MainWindow(QWidget):
 
         self.time_label = QLabel('', self)
         self.time_label.setAlignment(Qt.AlignCenter)
-        self.time_label.setStyleSheet("background: transparent; color: rgba(255,255,255,0.85); font-size: 9px;")
+        self.time_label.setStyleSheet("background: transparent; color: #000000; font-size: 10px; font-weight: bold;")
+
+        # ASCII/图片标签铺满或占用窗口时，按下拖动事件会被 QLabel 吞掉，
+        # 用事件过滤器统一接管拖动，保证两种显示模式都能拖动位置。
+        self._drag_filter = _DragFilter(self)
+        for _label in (self.countdown_label, self.ascii_label, self.time_label):
+            _label.installEventFilter(self._drag_filter)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 4)
         layout.setSpacing(2)
         layout.addWidget(self.countdown_label, 1, Qt.AlignCenter)
         layout.addWidget(self.ascii_label, 1)
-        layout.addWidget(self.time_label)
+        # 水平居中固定：adjustSize() 让 label 宽度随文本变宽变窄，
+        # 若不做水平居中，文本中心点会左右漂移（倒计时跳来跳去）。
+        layout.addWidget(self.time_label, 0, Qt.AlignHCenter)
 
         self.setParent(None)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)

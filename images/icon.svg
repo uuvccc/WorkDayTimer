@@ -1,14 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- MiniTools 图标：渐变圆角底板 + 猫脸时钟（猫耳 = 桌面宠物主题，表盘 = 计时器主题） -->
 <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="128" cy="128" r="120" fill="#4A90E2" stroke="#2171C7" stroke-width="8"/>
-  <circle cx="128" cy="128" r="110" fill="#FFFFFF" opacity="0.1"/>
-  <circle cx="128" cy="128" r="8" fill="#FFFFFF"/>
-  <!-- Hour markers -->
-  <line x1="128" y1="30" x2="128" y2="45" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
-  <line x1="128" y1="211" x2="128" y2="226" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
-  <line x1="30" y1="128" x2="45" y2="128" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
-  <line x1="211" y1="128" x2="226" y2="128" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
-  <!-- Clock hands -->
-  <line x1="128" y1="128" x2="128" y2="60" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" transform="rotate(45 128 128)"/>
-  <line x1="128" y1="128" x2="180" y2="128" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" transform="rotate(15 128 128)"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFC08A"/>
+      <stop offset="1" stop-color="#B03A5B"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx="0.28" cy="0.18" r="1.15">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.40"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F0F1F4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角渐变底板 -->
+  <rect x="12" y="12" width="232" height="232" rx="60" fill="url(#bg)"/>
+  <rect x="12" y="12" width="232" height="232" rx="60" fill="url(#gloss)"/>
+
+  <!-- 猫耳朵（白色，圆角，压在头顶两侧） -->
+  <path d="M90 114 L58 42 L112 78 Z" fill="url(#face)" stroke="url(#face)" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M166 114 L198 42 L144 78 Z" fill="url(#face)" stroke="url(#face)" stroke-width="14" stroke-linejoin="round"/>
+
+  <!-- 猫脸 = 表盘 -->
+  <circle cx="128" cy="148" r="72" fill="url(#face)"/>
+
+  <!-- 时针刻度：12 / 3 / 6 / 9 -->
+  <g stroke="#C04A6A" stroke-width="7" stroke-linecap="round">
+    <line x1="128" y1="90" x2="128" y2="103"/>
+    <line x1="128" y1="193" x2="128" y2="206"/>
+    <line x1="62" y1="148" x2="75" y2="148"/>
+    <line x1="181" y1="148" x2="194" y2="148"/>
+  </g>
+
+  <!-- 指针 + 中心点 -->
+  <g stroke="#C04A6A" stroke-linecap="round">
+    <line x1="128" y1="148" x2="128" y2="102" stroke-width="9" transform="rotate(-42 128 148)"/>
+    <line x1="128" y1="148" x2="180" y2="148" stroke-width="7" transform="rotate(14 128 148)"/>
+  </g>
+  <circle cx="128" cy="148" r="9" fill="#C04A6A"/>
 </svg>

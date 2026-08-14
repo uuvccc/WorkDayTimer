@@ -58,7 +58,8 @@ class TestRenderFrame(unittest.TestCase):
         self.assertNotIn('<span', out)
         self.assertNotIn('<br>', out)
         self.assertIn('\n', out)
-        self.assertIn('o.o', out)
+        # 2x 网格后猫脸变成 `(  o   o  )`（原来是 `( o.o )`）
+        self.assertIn('  o   o  ', out)
 
     def test_rainbow_scene_uses_spans(self):
         scene = ascii_art.SCENES['clock']
