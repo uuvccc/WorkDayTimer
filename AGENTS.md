@@ -110,3 +110,4 @@ pyinstaller --onefile --windowed --name MiniTools main.py
 | [PROGRESS.md](PROGRESS.md) | 历史变更记录 | 了解项目演进或排查问题时 |
 | [docs/design-docs/](docs/design-docs/) | 功能设计文档 | 实现新功能前 |
 | [docs/exec-plans/](docs/exec-plans/) | 执行计划（active/completed） | 执行具体任务前 |
+| [ascii_animations/README.md](ascii_animations/README.md) | 外部 ASCII 动画导入说明（格式/验证/排查） | 用户导入或自定义动画时 |

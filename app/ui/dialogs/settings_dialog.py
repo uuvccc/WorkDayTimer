@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QDialog, QApplication, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCheckBox, QDoubleSpinBox, QSpinBox, QMessageBox,
     QListWidget, QListWidgetItem, QStackedWidget, QWidget,
     QFrame, QSizePolicy, QSpacerItem,
@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from app.config.manager import config_manager
 from app.services import system_service, update_service
+from app.ui.dialogs.common import center_on_screen
 from app.utils.logger import logger
 
 SIDEBAR_STYLE = """
@@ -48,6 +49,7 @@ class SettingsDialog(QDialog):
         self._connect_signals()
         self.sidebar.setCurrentRow(0)
         self._load_settings()
+        center_on_screen(self)
 
     # ── Layout ────────────────────────────────────────────
 

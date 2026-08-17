@@ -1,3 +1,6 @@
+import json
+import os
+import tempfile
 import unittest
 
 from app.ui import ascii_art
@@ -47,6 +50,141 @@ class TestSceneData(unittest.TestCase):
         for name, scene in ascii_art.SCENES.items():
             out = ascii_art.render_frame(scene, 999)
             self.assertTrue(out, f"{name} render index 999 returned empty")
+
+
+class TestExternalScenes(unittest.TestCase):
+    """外部动画导入：JSON / 文本解析、目录扫描、注册与轮换。"""
+
+    def _write(self, directory, filename, content):
+        path = os.path.join(directory, filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return path
+
+    def _cleanup(self, name):
+        """移除测试期间注册进全局 SCENES / IDLE_SCENES 的外部场景。"""
+        ascii_art.SCENES.pop(name, None)
+        if name in ascii_art.IDLE_SCENES:
+            ascii_art.IDLE_SCENES.remove(name)
+
+    def test_parse_external_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "wow.json", json.dumps({
+                "name": "wow",
+                "color": "#FF0000",
+                "fps": 4,
+                "rainbow": True,
+                "frames": [["a", "bb"], ["c", "dd"]],
+            }))
+            name, scene = ascii_art._parse_external_json(path)
+            self.assertEqual(name, "wow")
+            self.assertEqual(scene["color"], "#FF0000")
+            self.assertEqual(scene["fps"], 4)
+            self.assertTrue(scene["rainbow"])
+            self.assertEqual(scene["frames"], [["a", "bb"], ["c", "dd"]])
+
+    def test_parse_external_json_defaults(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "no_name.json", json.dumps({
+                "frames": ["hello", "world"],
+            }))
+            name, scene = ascii_art._parse_external_json(path)
+            self.assertEqual(name, "no_name")
+            self.assertEqual(scene["color"], "#000000")
+            self.assertEqual(scene["fps"], 2)
+            self.assertFalse(scene["rainbow"])
+            self.assertEqual(len(scene["frames"]), 2)
+            self.assertEqual(scene["frames"][0], ["hello"])
+
+    def test_parse_external_json_invalid_raises(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "bad.json", '{"foo": 1}')
+            with self.assertRaises(ValueError):
+                ascii_art._parse_external_json(path)
+
+    def test_parse_external_json_idle_false(self):
+        """JSON 也支持 idle: false，解析后标记不参与待机轮换。"""
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "quiet.json", json.dumps({
+                "idle": False,
+                "frames": [["a"]],
+            }))
+            name, scene = ascii_art._parse_external_json(path)
+            self.assertEqual(name, "quiet")
+            self.assertTrue(scene.get("_external_no_idle"))
+
+    def test_parse_external_text(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "pet.txt", "\n".join([
+                "# name: my_pet",
+                "# color: #00FF00",
+                "# fps: 5",
+                "# rainbow: true",
+                "# idle: false",
+                "===",
+                "line1a",
+                "line1b",
+                "===",
+                "line2a",
+                "line2b",
+            ]))
+            name, scene = ascii_art._parse_external_text(path)
+            self.assertEqual(name, "my_pet")
+            self.assertEqual(scene["color"], "#00FF00")
+            self.assertEqual(scene["fps"], 5)
+            self.assertTrue(scene["rainbow"])
+            self.assertTrue(scene.get("_external_no_idle"))
+            self.assertEqual(len(scene["frames"]), 2)
+            self.assertEqual(scene["frames"][0], ["line1a", "line1b"])
+
+    def test_parse_external_text_single_frame(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "single.txt", "hello\nworld\n")
+            name, scene = ascii_art._parse_external_text(path)
+            self.assertEqual(scene["frames"], [["hello", "world"]])
+
+    def test_load_external_scenes_registers_and_skips(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(d, "pet.txt", "===\na\n===\nb\n")
+            self._write(d, "_draft.txt", "not\nloaded\n")
+            self._write(d, ".hidden.json", '{"frames": [["x"]]}')
+            self._write(d, "note.md", "ignore me")
+            names = ascii_art.load_external_scenes(directory=d)
+            try:
+                self.assertEqual(names, ["pet"])
+                self.assertIn("pet", ascii_art.SCENES)
+                self.assertIn("pet", ascii_art.IDLE_SCENES)
+                self.assertNotIn("_draft", ascii_art.SCENES)
+                self.assertNotIn("note", ascii_art.SCENES)
+            finally:
+                self._cleanup("pet")
+
+    def test_load_external_scene_idle_false_not_in_rotation(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(d, "quiet.txt", "# idle: false\n===\na\n===\nb\n")
+            names = ascii_art.load_external_scenes(directory=d)
+            try:
+                self.assertEqual(names, ["quiet"])
+                self.assertIn("quiet", ascii_art.SCENES)
+                self.assertNotIn("quiet", ascii_art.IDLE_SCENES)
+            finally:
+                self._cleanup("quiet")
+
+    def test_external_scene_normalized_and_renderable(self):
+        """外部场景注册后应像内置场景一样被 normalize 补齐网格并可渲染。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._write(d, "grid.json", json.dumps({
+                "frames": [["a", "bb"], ["ccc"]],
+            }))
+            names = ascii_art.load_external_scenes(directory=d)
+            try:
+                self.assertEqual(names, ["grid"])
+                scene = ascii_art.SCENES["grid"]
+                self.assertEqual([len(f) for f in scene["frames"]], [2, 2])
+                self.assertEqual(scene["frames"][1], ["ccc", "   "])
+                self.assertEqual(ascii_art.render_frame(scene, 0), "a  \nbb ")
+            finally:
+                self._cleanup("grid")
 
 
 class TestRenderFrame(unittest.TestCase):

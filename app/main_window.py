@@ -3,7 +3,7 @@ import random
 import datetime
 from PyQt5.QtCore import Qt, QTimer, QEvent, QObject
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QDialog, QSystemTrayIcon, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QLabel, QMessageBox, QApplication, QSystemTrayIcon, QVBoxLayout
 
 from app.config.constants import (
     ICON_FILE, IMAGE_DIRECTORY, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
@@ -153,9 +153,8 @@ class MainWindow(QWidget):
             self.reminder_timer2.start(int(delay2 * 1000))
 
         if is_first_start and config_manager.get_reminder_setting('checkin_reminder'):
-            # 推迟到 __init__ 完成后弹出：show_checkin_reminder 内部是模态 exec_()，
-            # 若在初始化中途调用会阻塞剩余初始化（如 tray_menu 尚未创建），
-            # 导致右键图片时报 'MainWindow' object has no attribute 'tray_menu'。
+            # 推迟到事件循环启动后弹出：打卡提醒已改为非模态，不再阻塞初始化；
+            # 延迟到主窗口显示完成后再弹出体验更好。
             QTimer.singleShot(0, self.show_checkin_reminder)
 
     def _setup_tray_menu(self):
@@ -163,6 +162,7 @@ class MainWindow(QWidget):
         self.tray_menu = TrayMenu(ICON_FILE, self)
         self.tray_menu.open_action.triggered.connect(self.move_to_front)
         self.tray_menu.custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
+        self.tray_menu.reload_animations_action.triggered.connect(self.reload_ascii_animations)
         self.tray_menu.settings_action.triggered.connect(self.show_settings_dialog)
         self.tray_menu.exit_action.triggered.connect(self.exit_app)
         self.tray_menu.tray_icon.activated.connect(self.on_tray_icon_activated)
@@ -250,6 +250,24 @@ class MainWindow(QWidget):
     def _switch_idle_scene(self):
         """每 20s 换一个待机形象（猫/兔/咖啡/打工人）。"""
         self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
+
+    def reload_ascii_animations(self):
+        """托盘触发：重新扫描 ascii_animations/ 目录，并立刻切换新动画展示。"""
+        loaded = ascii_art.load_external_scenes()
+        if not ascii_art.IDLE_SCENES:
+            logger.warning("No ascii scenes available after reload")
+            return
+        # 当前场景可能已随外部文件删除而消失，重置后再决策
+        if self._scene_name not in ascii_art.SCENES:
+            self._scene_name = None
+        # 正停在待机场景上时换一个新场景，让重载效果立刻可见；
+        # 时钟/庆祝/提醒场景保持不动，避免打断正在进行的状态
+        if self._scene_name == self._idle_scene:
+            self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
+        self._display_mode = 'ascii'
+        self._apply_mode()
+        self._refresh_ascii_scene()
+        logger.info("Reloaded ascii animations (external: %s)", len(loaded))
 
     def _advance_ascii_frame(self):
         scene = ascii_art.SCENES[self._scene_name]
@@ -370,22 +388,16 @@ class MainWindow(QWidget):
         ReminderDialog.show_checkout(self, is_flexible, self.shutdown_computer)
 
     def show_custom_timer_dialog(self):
-        logger.debug("Opening custom timer dialog")
+        logger.debug("Opening custom timer dialog (non-modal)")
         dialog = CustomTimerDialog(self)
-        result = dialog.exec_()
-        if result == QDialog.Accepted:
-            minutes = dialog.get_minutes()
-            logger.info(f"Custom timer dialog accepted: {minutes} minutes")
-            if minutes > 0:
-                self.start_custom_countdown(minutes)
-        else:
-            logger.debug("Custom timer dialog cancelled")
+        dialog.timer_started.connect(self.start_custom_countdown)
+        dialog.show_centered()
 
     def show_settings_dialog(self):
-        logger.debug("Opening settings dialog")
+        logger.debug("Opening settings dialog (non-modal)")
         dialog = SettingsDialog(self, update_callback=self.update_application)
-        dialog.exec_()
-        logger.debug("Settings dialog closed")
+        dialog.show()
+        logger.debug("Settings dialog shown")
 
     def start_custom_countdown(self, minutes):
         logger.info(f"Starting custom countdown: {minutes} minutes")

@@ -1,9 +1,9 @@
-from PyQt5.QtWidgets import (QMessageBox, QPushButton, QWidget, QApplication,
+from PyQt5.QtWidgets import (QPushButton, QWidget, QApplication,
                               QVBoxLayout, QLabel, QHBoxLayout)
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer
 from app.utils.logger import logger
-from app.ui.dialogs.common import FancyDialog
+from app.ui.dialogs.common import FancyDialog, LightDialog
 
 
 def _center_on_screen(dialog, width=None, height=None):
@@ -23,36 +23,34 @@ def _center_on_screen(dialog, width=None, height=None):
     )
 
 
-class CheckinDialog(FancyDialog):
-    """早上打卡提醒。"""
+class CheckinDialog(LightDialog):
+    """早上打卡提醒（非模态浅色）。"""
 
     def __init__(self, parent=None):
-        super().__init__("打卡提醒 · Check-in", "sunrise", parent)
+        super().__init__("打卡提醒 · Check-in", parent)
         self.add_hero(
             "⏰",
             "早上好！记得打卡，开启新的一天~",
             "Good morning! Don't forget to clock in and start your day.",
         )
         self.add_primary_button("好的，开工 👍", on_click=self.accept)
-        self._center_on_screen()
 
 
-class JobRecordDialog(FancyDialog):
-    """下班前工作记录提醒。"""
+class JobRecordDialog(LightDialog):
+    """下班前工作记录提醒（非模态浅色）。"""
 
     def __init__(self, parent=None):
-        super().__init__("工作记录提醒 · Work Log", "ocean", parent)
+        super().__init__("工作记录提醒 · Work Log", parent)
         self.add_hero(
             "📝",
             "快到下班点了，写一下今天的工作记录吧",
             "Almost off work — remember to log what you've done today.",
         )
         self.add_primary_button("知道了", on_click=self.accept)
-        self._center_on_screen()
 
 
 class CustomTimerDoneDialog(FancyDialog):
-    """自定义倒计时结束提醒。"""
+    """自定义倒计时结束提醒（保持模态，风格不变）。"""
 
     def __init__(self, parent=None):
         super().__init__("倒计时结束 · Timer Done", "violet", parent)
@@ -65,56 +63,64 @@ class CustomTimerDoneDialog(FancyDialog):
         self._center_on_screen()
 
 
+class CheckoutDialog(LightDialog):
+    """下班打卡提醒（非模态浅色，替代原 QMessageBox 版）。
+
+    - 弹性模式：打卡/关空调/写日志 提示
+    - 固定模式：显示 "Need to shutdown"；提供 Shutdown 按钮（仅当传入回调时）
+    """
+
+    def __init__(self, parent=None, is_flexible=True, shutdown_callback=None):
+        super().__init__("下班提醒 · Check-out", parent)
+        if is_flexible:
+            self.add_hero(
+                "🏠",
+                "到点下班啦！",
+                "1. Clock out\n"
+                "2. Turn off AC, water dispenser, windows, computer\n"
+                "3. Write work log",
+            )
+        else:
+            self.add_hero("🚨", "到点下班啦！", "Need to shutdown")
+            if shutdown_callback:
+                self.button_layout.addStretch()
+                self.button_layout.addWidget(
+                    self.make_button(
+                        "Shutdown",
+                        on_click=lambda: (shutdown_callback(), self.accept()),
+                    )
+                )
+        self.button_layout.addStretch()
+        self.button_layout.addWidget(
+            self.make_button("Ignore", on_click=self.accept)
+        )
+
+
 class ReminderDialog:
     @staticmethod
     def show_checkin(parent=None):
-        logger.debug("Showing check-in reminder dialog")
+        logger.debug("Showing check-in reminder dialog (non-modal)")
         dialog = CheckinDialog(parent)
-        dialog.exec_()
+        dialog.show_centered()
+        return dialog
 
     @staticmethod
     def show_job_record(parent=None):
-        logger.debug("Showing job record reminder dialog")
+        logger.debug("Showing job record reminder dialog (non-modal)")
         dialog = JobRecordDialog(parent)
-        dialog.exec_()
+        dialog.show_centered()
+        return dialog
 
     @staticmethod
     def show_checkout(parent=None, is_flexible=True, shutdown_callback=None):
         logger.debug(f"Showing checkout reminder dialog: is_flexible={is_flexible}, has_shutdown_cb={shutdown_callback is not None}")
-        dialog = QMessageBox(parent)
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-        dialog.setWindowTitle("Microsoft Visual Studio")
-
-        if not is_flexible:
-            reminder_message = "Need to shutdown"
-        else:
-            reminder_message = """Reminder:
-        - 1. Clock out
-        - 2. Turn off AC, water dispenser, windows, computer
-        - 3. Write work log
-        -- """
-
-        dialog.setText(reminder_message)
-        dialog.setIcon(QMessageBox.Information)
-
-        if not is_flexible and shutdown_callback:
-            shutdown_button = QPushButton("Shutdown")
-            shutdown_button.clicked.connect(shutdown_callback)
-            dialog.addButton(shutdown_button, QMessageBox.ActionRole)
-
-        dialog.addButton(QMessageBox.Ignore)
-
-        dialog.setMinimumSize(400, 200)
-        _center_on_screen(dialog, 750, 550)
-
-        font = QFont()
-        font.setPointSize(12)
-        dialog.setFont(font)
-        dialog.exec_()
+        dialog = CheckoutDialog(parent, is_flexible, shutdown_callback)
+        dialog.show_centered()
+        return dialog
 
     @staticmethod
     def show_custom_timer(parent=None):
-        logger.debug("Showing custom timer reminder dialog")
+        logger.debug("Showing custom timer reminder dialog (modal)")
         dialog = CustomTimerDoneDialog(parent)
         dialog.exec_()
 
