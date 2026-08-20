@@ -1,5 +1,10 @@
 from .tray_menu import TrayMenu
-from .dialogs import SettingsDialog, CustomTimerDialog, ReminderDialog
+from .dialogs import (
+    SettingsDialog,
+    CustomTimerDialog,
+    ReminderDialog,
+    CustomAsciiHelpDialog,
+)
 from . import ascii_art
 
 __all__ = [
@@ -7,5 +12,6 @@ __all__ = [
     'SettingsDialog',
     'CustomTimerDialog',
     'ReminderDialog',
+    'CustomAsciiHelpDialog',
     'ascii_art'
 ]

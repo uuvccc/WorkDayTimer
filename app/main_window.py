@@ -10,7 +10,14 @@ from app.config.constants import (
 )
 from app.config.manager import config_manager
 from app.services import time_service, system_service, update_service, keyboard_service
-from app.ui import TrayMenu, SettingsDialog, CustomTimerDialog, ReminderDialog, ascii_art
+from app.ui import (
+    TrayMenu,
+    SettingsDialog,
+    CustomTimerDialog,
+    ReminderDialog,
+    CustomAsciiHelpDialog,
+    ascii_art,
+)
 from app.utils.image import transparent_pixmap
 from app.utils.logger import logger
 
@@ -162,6 +169,7 @@ class MainWindow(QWidget):
         self.tray_menu = TrayMenu(ICON_FILE, self)
         self.tray_menu.open_action.triggered.connect(self.move_to_front)
         self.tray_menu.custom_timer_action.triggered.connect(self.show_custom_timer_dialog)
+        self.tray_menu.custom_ascii_action.triggered.connect(self.show_custom_ascii_help)
         self.tray_menu.reload_animations_action.triggered.connect(self.reload_ascii_animations)
         self.tray_menu.settings_action.triggered.connect(self.show_settings_dialog)
         self.tray_menu.exit_action.triggered.connect(self.exit_app)
@@ -391,6 +399,12 @@ class MainWindow(QWidget):
         logger.debug("Opening custom timer dialog (non-modal)")
         dialog = CustomTimerDialog(self)
         dialog.timer_started.connect(self.start_custom_countdown)
+        dialog.show_centered()
+
+    def show_custom_ascii_help(self):
+        """托盘 Custom Animations...：弹出使用说明（不改功能，只讲清用法）。"""
+        logger.debug("Opening custom ascii help dialog (non-modal)")
+        dialog = CustomAsciiHelpDialog(self)
         dialog.show_centered()
 
     def show_settings_dialog(self):

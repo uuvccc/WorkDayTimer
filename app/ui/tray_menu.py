@@ -39,6 +39,10 @@ class TrayMenu:
         self.custom_timer_action = QAction("Custom Timer...", self.parent)
         self.menu.addAction(self.custom_timer_action)
 
+        # Custom ASCII animations: how-to help + reload external folder
+        self.custom_ascii_action = QAction("Custom Animations...", self.parent)
+        self.menu.addAction(self.custom_ascii_action)
+
         # Reload ASCII animations (re-scan ascii_animations/ folder)
         self.reload_animations_action = QAction("Reload Animations", self.parent)
         self.menu.addAction(self.reload_animations_action)
