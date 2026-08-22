@@ -413,12 +413,13 @@ class MainWindow(QWidget):
         dialog.show()
         logger.debug("Settings dialog shown")
 
-    def start_custom_countdown(self, minutes):
-        logger.info(f"Starting custom countdown: {minutes} minutes")
+    def start_custom_countdown(self, minutes, message=""):
+        logger.info(f"Starting custom countdown: {minutes} minutes, message: {message!r}")
         if hasattr(self, 'custom_timer'):
             self.custom_timer.stop()
             logger.debug("Stopped previous custom timer")
 
+        self.custom_timer_message = message
         self.custom_timer = QTimer(self)
         self.custom_timer.timeout.connect(self.show_custom_timer_reminder)
         self.custom_timer.setSingleShot(True)
@@ -426,7 +427,8 @@ class MainWindow(QWidget):
 
     def show_custom_timer_reminder(self):
         logger.info("Custom timer expired, showing reminder")
-        ReminderDialog.show_custom_timer(self)
+        message = getattr(self, 'custom_timer_message', '')
+        ReminderDialog.show_custom_timer(self, message)
         self._celebrate_once()
 
     def update_application(self):

@@ -16,7 +16,8 @@ class CustomTimerDialog(LightDialog):
     把用户设置的分钟数发给主窗口。
     """
 
-    timer_started = pyqtSignal(int)
+    # (minutes, message)：分钟数 + 到时提醒内容
+    timer_started = pyqtSignal(int, str)
 
     def __init__(self, parent=None):
         super().__init__("自定义计时器 · Custom Timer", parent)
@@ -50,6 +51,23 @@ class CustomTimerDialog(LightDialog):
             "QLineEdit:focus { border: 2px solid #4CAF50; }"
         )
         self.content_layout.addWidget(self.input_field)
+
+        self.content_layout.addSpacing(8)
+
+        message_hint = QLabel("到时提醒内容（可选）\nWhat to remind when done")
+        message_hint.setAlignment(Qt.AlignCenter)
+        message_hint.setStyleSheet("color: #666666; font-size: 13px;")
+        self.content_layout.addWidget(message_hint)
+
+        self.message_field = QLineEdit()
+        self.message_field.setPlaceholderText("例如：该喝水了 / 休息一下 / 给客户回电话")
+        self.message_field.setStyleSheet(
+            "QLineEdit { background: #ffffff; color: #333333;"
+            "  border: 1px solid #dddddd; border-radius: 8px;"
+            "  padding: 8px 12px; font-size: 14px; }"
+            "QLineEdit:focus { border: 2px solid #4CAF50; }"
+        )
+        self.content_layout.addWidget(self.message_field)
 
         self.content_layout.addSpacing(8)
 
@@ -108,8 +126,9 @@ class CustomTimerDialog(LightDialog):
             minutes = int(self.input_field.text())
             if minutes > 0:
                 self._result_minutes = minutes
-                logger.info(f"Custom timer set: {minutes} minutes")
-                self.timer_started.emit(minutes)
+                message = self.message_field.text().strip()
+                logger.info(f"Custom timer set: {minutes} minutes, message: {message!r}")
+                self.timer_started.emit(minutes, message)
                 self.accept()
             else:
                 logger.warning(f"Custom timer invalid input: {minutes} (must be positive)")
