@@ -50,14 +50,18 @@ class JobRecordDialog(LightDialog):
 
 
 class CustomTimerDoneDialog(FancyDialog):
-    """自定义倒计时结束提醒（保持模态，风格不变）。"""
+    """自定义倒计时结束提醒（保持模态，风格不变）。
 
-    def __init__(self, parent=None):
+    message 为用户在设置倒计时时输入的提醒内容；
+    为空时显示默认文案。
+    """
+
+    def __init__(self, message="", parent=None):
         super().__init__("倒计时结束 · Timer Done", "violet", parent)
         self.add_hero(
             "⏱️",
             "倒计时结束啦！",
-            "Your custom countdown has finished. Time for a break?",
+            message if message else "Your custom countdown has finished. Time for a break?",
         )
         self.add_primary_button("好的 👍", on_click=self.accept)
         self._center_on_screen()
@@ -119,9 +123,9 @@ class ReminderDialog:
         return dialog
 
     @staticmethod
-    def show_custom_timer(parent=None):
-        logger.debug("Showing custom timer reminder dialog (modal)")
-        dialog = CustomTimerDoneDialog(parent)
+    def show_custom_timer(parent=None, message=""):
+        logger.debug(f"Showing custom timer reminder dialog (modal), message={message!r}")
+        dialog = CustomTimerDoneDialog(message, parent)
         dialog.exec_()
 
     @staticmethod
