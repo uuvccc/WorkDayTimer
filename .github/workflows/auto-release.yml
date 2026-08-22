@@ -59,7 +59,24 @@ jobs:
         Write-Host "Injected version: $newVersion"
         echo "::set-output name=version::$newVersion"
 
+    - name: Check if release tag already exists
+      id: check_release
+      shell: pwsh
+      run: |
+        # amend/force-push 不会改变 commit count，可能生成与已发布版本相同的 tag。
+        # 若 tag 已存在则跳过 release 创建，避免 Create Release 因同名 tag 失败。
+        $tag = "v${{ steps.version.outputs.version }}"
+        $exists = (git ls-remote --tags origin | Select-String -Pattern ([regex]::Escape($tag)) -Quiet)
+        if ($exists) {
+          Write-Host "Tag $tag already exists, skipping release creation."
+          "exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        } else {
+          Write-Host "Tag $tag does not exist yet, will create release."
+          "exists=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        }
+
     - name: Build with PyInstaller
+      if: steps.check_release.outputs.exists == 'false'
       run: |
         # --add-data 必须带上 images 目录，否则 exe 运行时找不到托盘图标和宠物图片
         # --icon 用多尺寸 icon.ico 作为 exe 外壳图标
@@ -131,6 +148,7 @@ jobs:
 
     - name: Create Release
       id: create_release
+      if: steps.check_release.outputs.exists == 'false'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -142,6 +160,7 @@ jobs:
         prerelease: false
 
     - name: Upload Release Asset
+      if: steps.check_release.outputs.exists == 'false'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
