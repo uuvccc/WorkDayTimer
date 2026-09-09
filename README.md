@@ -11,6 +11,7 @@ A desktop utility application for tracking work hours with reminder functionalit
 - Daily work log reminders
 - System tray integration
 - Customizable desktop timer display
+- Live key & mouse input feedback shown above the pet
 - Flexible/Fixed time mode support
 - Custom timer functionality
 - Reminder settings configuration

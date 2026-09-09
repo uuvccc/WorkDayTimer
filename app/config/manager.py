@@ -230,6 +230,19 @@ class ConfigManager:
         self.set_reminder_setting(key, not current)
         return not current
 
+    # ── Input Feedback ────────────────────────────────────
+
+    @property
+    def show_input_feedback(self) -> bool:
+        return self._settings.get("show_input_feedback", True)
+
+    @show_input_feedback.setter
+    def show_input_feedback(self, value: bool):
+        old = self._settings.get("show_input_feedback", True)
+        self._settings["show_input_feedback"] = value
+        self._save()
+        logger.info(f"show_input_feedback changed: {old} -> {value}")
+
     # ── Bulk ──────────────────────────────────────────────
 
     def get_all(self) -> dict:
@@ -241,13 +254,15 @@ class ConfigManager:
             "work_hours": self.work_hours,
             "fixed_start_hour": self.fixed_start_hour,
             "job_record_before_end_minutes": self.job_record_before_end_minutes,
+            "show_input_feedback": self.show_input_feedback,
             "reminders": self.reminder_settings,
         }
 
     def apply_changes(self, flexible_mode=None, run_on_startup=None,
                       auto_check_update=None, check_update_delay=None,
                       work_hours=None, fixed_start_hour=None,
-                      job_record_before_end_minutes=None, reminders=None):
+                      job_record_before_end_minutes=None,
+                      show_input_feedback=None, reminders=None):
         """批量写入（避免多次 save）"""
         changes = []
         if flexible_mode is not None:
@@ -271,6 +286,9 @@ class ConfigManager:
         if job_record_before_end_minutes is not None:
             changes.append(f"job_record_before_end_minutes: {self._settings.get('job_record_before_end_minutes')} -> {job_record_before_end_minutes}")
             self._settings["job_record_before_end_minutes"] = job_record_before_end_minutes
+        if show_input_feedback is not None:
+            changes.append(f"show_input_feedback: {self._settings.get('show_input_feedback')} -> {show_input_feedback}")
+            self._settings["show_input_feedback"] = show_input_feedback
         if reminders is not None:
             changes.append(f"reminders: {self._settings.get('reminders')} -> {reminders}")
             self._settings["reminders"] = reminders

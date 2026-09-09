@@ -37,9 +37,11 @@ QListWidget::item:selected {
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, update_callback=None):
+    def __init__(self, parent=None, update_callback=None, apply_callback=None):
         super().__init__(parent)
         self._update_callback = update_callback
+        # 点 OK 保存后回调（父窗口用来即时重连输入反馈 Hook 等运行态设置）
+        self._apply_callback = apply_callback
         logger.debug("SettingsDialog opening")
         self.setWindowTitle("Settings")
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -65,9 +67,10 @@ class SettingsDialog(QDialog):
         self.sidebar.setFocusPolicy(Qt.NoFocus)
 
         self._add_nav_item("General", 0)
-        self._add_nav_item("Reminders", 1)
-        self._add_nav_item("System", 2)
-        self._add_nav_item("About", 3)
+        self._add_nav_item("Pet", 1)
+        self._add_nav_item("Reminders", 2)
+        self._add_nav_item("System", 3)
+        self._add_nav_item("About", 4)
 
         outer.addWidget(self.sidebar)
 
@@ -78,6 +81,7 @@ class SettingsDialog(QDialog):
 
         self.stack = QStackedWidget()
         self.stack.addWidget(self._page_general())
+        self.stack.addWidget(self._page_pet())
         self.stack.addWidget(self._page_reminders())
         self.stack.addWidget(self._page_system())
         self.stack.addWidget(self._page_about())
@@ -168,6 +172,26 @@ class SettingsDialog(QDialog):
         jr_row.addWidget(self.job_record_spin)
         jr_row.addStretch()
         page.layout().addLayout(jr_row)
+
+        page.layout().addStretch()
+        return page
+
+    # ── Page: Pet ─────────────────────────────────────────
+
+    def _page_pet(self):
+        page = self._page_wrapper("Pet Display")
+
+        self.input_feedback_checkbox = QCheckBox(
+            "Show key & mouse feedback bubble")
+        page.layout().addWidget(self.input_feedback_checkbox)
+
+        desc = QLabel(
+            "Shows every key you press and every mouse button you click "
+            "as an ASCII bubble above the pet (stream-style key display).\n"
+            "Note: this shows typed text on screen, including passwords.")
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #666; margin-top: 4px;")
+        page.layout().addWidget(desc)
 
         page.layout().addStretch()
         return page
@@ -276,6 +300,7 @@ class SettingsDialog(QDialog):
         self.startup_checkbox.setChecked(system_service.is_run_on_startup())
         self.auto_update_checkbox.setChecked(config_manager.auto_check_update)
         self.update_delay_spin.setValue(config_manager.check_update_delay)
+        self.input_feedback_checkbox.setChecked(config_manager.show_input_feedback)
 
     def _on_ok(self):
         logger.debug("Settings OK button clicked")
@@ -302,8 +327,17 @@ class SettingsDialog(QDialog):
             self.startup_checkbox.setChecked(not new_startup)
             return
 
+        config_manager.show_input_feedback = self.input_feedback_checkbox.isChecked()
+
         self.accept()
         logger.info("Settings dialog accepted")
+
+        # 运行态设置即时生效（输入反馈 Hook 重连等）
+        if self._apply_callback:
+            try:
+                self._apply_callback()
+            except Exception as e:
+                logger.error(f"Apply callback failed: {e}", exc_info=True)
 
         if old_flexible != new_flexible:
             QMessageBox.information(

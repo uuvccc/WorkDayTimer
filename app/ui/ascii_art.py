@@ -1460,3 +1460,80 @@ def render_frame(scene, index):
                  for row, c in zip(frame, colors)]
         return "<br>".join(lines)
     return "\n".join(frame)
+
+
+# ── 按键 / 鼠标反馈气泡 ───────────────────────────────────
+# 全局键盘/鼠标 Hook 触发时，把按下的键 / 点击的按钮渲染成键帽样式小气泡，
+# 由 MainWindow 浮在宠物窗口上方展示。下列函数均为纯函数，方便单元测试。
+
+# 功能键 → 键帽显示名（keyboard 库的 event.name 是小写）
+_FEEDBACK_KEY_LABELS = {
+    "enter": "Enter", "esc": "Esc", "escape": "Esc",
+    "space": "Space", "tab": "Tab", "backspace": "Backspace",
+    "delete": "Del", "insert": "Ins", "home": "Home", "end": "End",
+    "page up": "PgUp", "page down": "PgDn",
+    "print screen": "PrtScr", "scroll lock": "ScrLk", "pause": "Pause",
+    "caps lock": "CapsLk", "num lock": "NumLk",
+    "shift": "Shift", "left shift": "L Shift", "right shift": "R Shift",
+    "ctrl": "Ctrl", "control": "Ctrl",
+    "left ctrl": "L Ctrl", "right ctrl": "R Ctrl",
+    "alt": "Alt", "left alt": "L Alt", "right alt": "R Alt", "alt gr": "AltGr",
+    "windows": "Win", "win": "Win",
+    "left windows": "L Win", "right windows": "R Win",
+    "up": "Up", "down": "Down", "left": "Left", "right": "Right",
+    "menu": "Menu",
+}
+
+# 键帽内容最多容纳的字符数（超出截断，避免撑出 200px 的宠物窗口）
+_FEEDBACK_KEYCAP_MAX = 12
+
+
+def key_display_label(name):
+    """把 keyboard 库的按键名转成键帽上显示的文字。
+
+    - 字母转大写（A、B…），符号/数字原样显示；
+    - 常见功能键映射成短名（Enter、Space、L Ctrl…）；
+    - 未知按键按单词首字母大写兜底（f1 → F1）。
+    """
+    if not name:
+        return "?"
+    key = str(name).strip().lower()
+    if key in _FEEDBACK_KEY_LABELS:
+        return _FEEDBACK_KEY_LABELS[key]
+    if len(key) == 1:
+        return key.upper() if key.isalpha() else key
+    parts = [w.capitalize() for w in key.split() if w]
+    return " ".join(parts) if parts else key
+
+
+def mouse_display_label(button):
+    """把鼠标按钮对象/名字转成键帽文字（LMB / RMB / MMB / X1 / X2）。
+
+    mouse 库的 button 在不同版本里可能是枚举/对象/字符串，统一按 str 匹配。
+    """
+    text = str(button).lower()
+    if "middle" in text:
+        return "MMB"
+    if "right" in text:
+        return "RMB"
+    if "left" in text:
+        return "LMB"
+    if "x2" in text:
+        return "X2"
+    if "x1" in text:
+        return "X1"
+    return "Click"
+
+
+def render_keycap(text):
+    """把一行文字渲染成 3 行 ASCII 键帽（等宽字体下对齐不变形）。"""
+    label = ((text or "?")).strip()
+    if len(label) > _FEEDBACK_KEYCAP_MAX:
+        label = label[:_FEEDBACK_KEYCAP_MAX - 1] + "."
+    width = len(label) + 2
+    border = "+" + "-" * width + "+"
+    return "\n".join([
+        border,
+        "| " + label.ljust(width - 2) + " |",
+        border,
+    ])

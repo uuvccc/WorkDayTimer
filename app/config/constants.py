@@ -90,6 +90,8 @@ DEFAULT_SETTINGS = {
     "work_hours": DEFAULT_WORK_HOURS,
     "fixed_start_hour": DEFAULT_FIXED_START_HOUR,
     "job_record_before_end_minutes": DEFAULT_JOB_RECORD_BEFORE_END_MINUTES,
+    # 在宠物上方展示「按下的键 / 点击的鼠标按钮」气泡（默认开启，设置里可关）
+    "show_input_feedback": True,
     "reminders": {
         "checkin_reminder": True,
         "job_record_reminder": True,

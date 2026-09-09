@@ -65,6 +65,11 @@ class TestConfigManager(unittest.TestCase):
             config = ConfigManager()
             self.assertEqual(config.job_record_before_end_minutes, 60)
 
+    def test_show_input_feedback_default(self):
+        with patch('builtins.open', side_effect=FileNotFoundError):
+            config = ConfigManager()
+            self.assertTrue(config.show_input_feedback)
+
 
 if __name__ == '__main__':
     unittest.main()

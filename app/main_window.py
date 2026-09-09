@@ -9,7 +9,9 @@ from app.config.constants import (
     ICON_FILE, IMAGE_DIRECTORY, WINDOW_SIZE_WIDTH, WINDOW_SIZE_HEIGHT
 )
 from app.config.manager import config_manager
-from app.services import time_service, system_service, update_service, keyboard_service
+from app.services import (
+    time_service, system_service, update_service, keyboard_service, feedback_service,
+)
 from app.ui import (
     TrayMenu,
     SettingsDialog,
@@ -20,6 +22,18 @@ from app.ui import (
 )
 from app.utils.image import transparent_pixmap
 from app.utils.logger import logger
+
+
+# 全局输入反馈专用 Qt 事件类型（用于 Hook 线程 → GUI 线程投递）
+INPUT_FEEDBACK_EVENT_TYPE = QEvent.registerEventType()
+
+
+class InputFeedbackEvent(QEvent):
+    """携带按键气泡文本（已渲染成键帽 ASCII）的自定义事件。"""
+
+    def __init__(self, text):
+        super().__init__(INPUT_FEEDBACK_EVENT_TYPE)
+        self.text = text
 
 
 class _DragFilter(QObject):
@@ -59,6 +73,7 @@ class MainWindow(QWidget):
         self._setup_tray_menu()
         self._setup_timers()
         self._setup_keyboard_hook()
+        self._sync_input_feedback()
         self._schedule_auto_update_check()
         logger.info("MainWindow initialization complete")
 
@@ -93,6 +108,19 @@ class MainWindow(QWidget):
         self.time_label = QLabel('', self)
         self.time_label.setAlignment(Qt.AlignCenter)
         self.time_label.setStyleSheet("background: transparent; color: #000000; font-size: 10px; font-weight: bold;")
+
+        # 按键/鼠标反馈气泡：独立浮层，不参与布局，只在有输入事件时临时显示，
+        # 这样出现/消失都不会挤压或移动宠物动画。
+        self.feedback_label = QLabel(self)
+        self.feedback_label.setFont(QFont("Consolas", 9))
+        self.feedback_label.setAlignment(Qt.AlignCenter)
+        self.feedback_label.setWordWrap(False)
+        self.feedback_label.setTextFormat(Qt.PlainText)
+        # 无底片无边框：直接以黑色文字显示按键名，与宠物 ASCII 同为透明背景 + 黑色
+        self.feedback_label.setStyleSheet("background: transparent; color: #000000;")
+        self.feedback_label.hide()
+        # 气泡不拦截鼠标事件：点击仍透传给下层宠物标签（走 _DragFilter 拖动）
+        self.feedback_label.setAttribute(Qt.WA_TransparentForMouseEvents)
 
         # ASCII/图片标签铺满或占用窗口时，按下拖动事件会被 QLabel 吞掉，
         # 用事件过滤器统一接管拖动，保证两种显示模式都能拖动位置。
@@ -179,6 +207,62 @@ class MainWindow(QWidget):
         logger.debug("Setting up keyboard hook")
         keyboard_service.set_enter_key_callback(self.toggle_qq_window)
         keyboard_service.start_listening()
+
+    # ── 输入反馈（按键/鼠标气泡）───────────────────────────
+
+    def _sync_input_feedback(self):
+        """按配置开关/重连全局输入 Hook（启动时与设置页保存后都会调用）。"""
+        if config_manager.show_input_feedback:
+            if not feedback_service.is_started:
+                logger.info("Enabling key/mouse feedback hooks")
+                feedback_service.start(
+                    on_key=self._on_global_key,
+                    on_mouse=self._on_global_mouse)
+        elif feedback_service.is_started:
+            logger.info("Disabling key/mouse feedback hooks")
+            feedback_service.stop()
+            self._hide_feedback()
+
+    def _on_global_key(self, key_name):
+        """键盘 Hook 线程回调：转成显示文本后投递到 GUI 线程。"""
+        try:
+            text = ascii_art.key_display_label(key_name)
+        except Exception as e:
+            logger.debug(f"Ignored feedback key {key_name!r}: {e}")
+            return
+        QApplication.postEvent(self, InputFeedbackEvent(text))
+
+    def _on_global_mouse(self, button):
+        """鼠标 Hook 线程回调：转成显示文本后投递到 GUI 线程。"""
+        try:
+            text = ascii_art.mouse_display_label(button)
+        except Exception as e:
+            logger.debug(f"Ignored feedback mouse {button!r}: {e}")
+            return
+        QApplication.postEvent(self, InputFeedbackEvent(text))
+
+    def _show_feedback(self, text):
+        """在宠物窗口上方显示按键气泡；每次输入都会刷新 1s 的消失计时。"""
+        if not config_manager.show_input_feedback:
+            return
+        label = getattr(self, 'feedback_label', None)
+        if label is None or not text:
+            return
+        label.setText(text)
+        label.adjustSize()
+        label.move(max(2, (self.width() - label.width()) // 2), 2)
+        label.show()
+        label.raise_()
+        if not getattr(self, '_feedback_hide_timer', None):
+            self._feedback_hide_timer = QTimer(self)
+            self._feedback_hide_timer.setSingleShot(True)
+            self._feedback_hide_timer.timeout.connect(self._hide_feedback)
+        self._feedback_hide_timer.start(1000)
+
+    def _hide_feedback(self):
+        label = getattr(self, 'feedback_label', None)
+        if label is not None:
+            label.hide()
 
     def _schedule_auto_update_check(self):
         """根据配置延迟调度自动更新检测"""
@@ -409,7 +493,11 @@ class MainWindow(QWidget):
 
     def show_settings_dialog(self):
         logger.debug("Opening settings dialog (non-modal)")
-        dialog = SettingsDialog(self, update_callback=self.update_application)
+        dialog = SettingsDialog(
+            self,
+            update_callback=self.update_application,
+            apply_callback=self._sync_input_feedback,
+        )
         dialog.show()
         logger.debug("Settings dialog shown")
 
@@ -553,6 +641,7 @@ class MainWindow(QWidget):
 
     def exit_app(self):
         logger.info("Exiting application")
+        feedback_service.stop()
         keyboard_service.stop_listening()
         self.app.quit()
 
@@ -582,6 +671,9 @@ class MainWindow(QWidget):
             self.toggle_qq_window()
 
     def event(self, event):
+        if event.type() == INPUT_FEEDBACK_EVENT_TYPE:
+            self._show_feedback(event.text)
+            return True
         if event.type() == QEvent.User:
             logger.info("Update available event received, showing non-modal dialog")
             ReminderDialog.show_update_available(

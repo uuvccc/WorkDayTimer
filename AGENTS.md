@@ -8,7 +8,7 @@ MiniTools（WorkDayTimer）— Windows 桌面宠物形态的工作时间追踪�
 
 - Python 3.10+（CI 使用 3.10，`python_requires=">=3.6"`）
 - PyQt5 >= 5.15.0（GUI）
-- keyboard / Pillow / requests / numpy / pywin32
+- keyboard / mouse / Pillow / requests / numpy / pywin32
 - PyInstaller（打包）、flake8（lint）、unittest（测试）
 - GitHub Actions（CI/CD，runs-on: windows-latest）
 
@@ -25,6 +25,7 @@ app/services/                    # 各服务均为「类 + 模块级单例」模
   system_service.py              #   注册表开机自启、QQ 窗口切换(win32gui)、关机
   update_service.py              #   GitHub 检查更新 + 代理镜像回退下载 + updater.bat
   keyboard_service.py            #   全局 Enter 键监听
+  feedback_service.py            #   全局键盘/鼠标 Hook（宠物按键/鼠标反馈事件源）
 app/ui/
   tray_menu.py                   # 系统托盘菜单
   dialogs/                       # 各对话框（均为 QWidget/QDialog 子类）
