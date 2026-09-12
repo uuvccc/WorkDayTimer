@@ -3,10 +3,11 @@
   "run_on_startup": true,
   "auto_check_update": true,
   "check_update_delay": 10,
-  "defer_update_until": null,
+  "defer_update_until": "2026-09-16T21:51:43.750629",
   "work_hours": 8.5,
   "fixed_start_hour": 9.0,
   "job_record_before_end_minutes": 60,
+  "show_input_feedback": true,
   "reminders": {
     "checkin_reminder": true,
     "job_record_reminder": true,

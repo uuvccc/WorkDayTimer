@@ -4,8 +4,9 @@ from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QStackedWidget, QWidget,
     QFrame, QSizePolicy, QSpacerItem,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
+import threading
 from app.config.manager import config_manager
 from app.services import system_service, update_service
 from app.ui.dialogs.common import center_on_screen
@@ -347,14 +348,63 @@ class SettingsDialog(QDialog):
             )
 
     def _on_check_updates(self):
-        logger.debug("Check for updates button clicked")
-        if not config_manager.auto_check_update:
-            QMessageBox.information(
-                self, "Update Check Disabled",
-                "Automatic update check is currently disabled.\n"
-                "Please enable it in System settings first.")
+        """手动检查更新。
+
+        手动检查只做一次即时查询，与「启动时自动检测」开关（auto_check_update）
+        无关——那个开关只控制启动时的后台自动检测，不应限制用户主动更新。
+        """
+        logger.debug("Check for updates button clicked (manual)")
+        if getattr(self, "_checking_updates", False):
             return
-        if self._update_callback:
-            self._update_callback()
+        self._checking_updates = True
+        self.check_update_btn.setEnabled(False)
+        self.check_update_btn.setText("Checking...")
+
+        self._check_update_result = None
+        threading.Thread(target=self._do_check_updates, daemon=True).start()
+
+        # 用挂在对话框上的定时器轮询后台线程结果：对话框销毁时定时器随之销毁，
+        # 不会在窗口关闭后回调到已释放的对象。
+        self._check_timer = QTimer(self)
+        self._check_timer.setInterval(100)
+        self._check_timer.timeout.connect(self._poll_check_update_result)
+        self._check_timer.start()
+
+    def _do_check_updates(self):
+        try:
+            self._check_update_result = update_service.check_for_updates()
+        except Exception as e:
+            logger.error(f"Manual update check failed: {e}", exc_info=True)
+            self._check_update_result = (False, None, None)
+
+    def _poll_check_update_result(self):
+        if self._check_update_result is None:
+            return
+        self._check_timer.stop()
+
+        has_update, latest_version, current_version = self._check_update_result
+        self._checking_updates = False
+        self.check_update_btn.setEnabled(True)
+        self.check_update_btn.setText("Check for Updates...")
+
+        if has_update:
+            logger.info(f"Manual check found update: {latest_version}")
+            reply = QMessageBox.question(
+                self, "Update Available",
+                f"A new version v{latest_version} is available "
+                f"(current v{current_version}).\n\nUpdate now?")
+            if reply == QMessageBox.Yes and self._update_callback:
+                self._update_callback()
+        elif current_version is None:
+            QMessageBox.warning(self, "Update Check Failed",
+                                "Could not determine the current version.")
+        elif latest_version:
+            logger.info("Manual check: already up to date")
+            QMessageBox.information(
+                self, "No Updates",
+                f"You are already using the latest version (v{current_version}).")
         else:
-            QMessageBox.information(self, "Update", "Update check is not available.")
+            QMessageBox.warning(
+                self, "Update Check Failed",
+                "Could not check for updates.\n"
+                "Please check your network connection and try again.")
