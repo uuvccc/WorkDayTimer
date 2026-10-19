@@ -148,9 +148,9 @@ WorkDayTimer/
 │       └── version.py         # 版本比较工具
 ├── tests/                     # 单元测试
 ├── images/                    # 计时器图片
+├── ascii_animations/          # 内置默认与自定义 ASCII 动画
 ├── requirements.txt           # 依赖项
-├── setup.py                   # 包配置
-└── workday_timer.spec         # PyInstaller 配置
+└── MiniTools.spec             # PyInstaller 配置
 ```
 
 ## 打包
@@ -158,14 +158,10 @@ WorkDayTimer/
 要构建可执行文件：
 
 ```bash
-python workday_timer.spec
+pyinstaller MiniTools.spec
 ```
 
-或者直接使用PyInstaller：
-
-```bash
-pyinstaller --onefile --windowed --name MiniTools main.py
-```
+所有打包参数（onefile、windowed、图标、内置 `images/` 与 `ascii_animations/` 资源）统一定义在 `MiniTools.spec` 中，spec 是唯一构建入口。
 
 ## 贡献
 

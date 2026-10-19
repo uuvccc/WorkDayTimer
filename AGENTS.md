@@ -18,7 +18,7 @@ MiniTools（WorkDayTimer）— Windows 桌面宠物形态的工作时间追踪�
 main.py                          # 入口，调用 app.application.main()
 app/application.py               # MiniToolsApplication — 创建 QApplication + MainWindow
 app/main_window.py               # MainWindow(QWidget) — 核心协调者，串联所有服务与 UI
-app/config/constants.py          # 路径常量 + 默认配置（get_base_dir 处理双模式路径）
+app/config/constants.py          # 路径常量 + 默认配置（get_base_dir 处理路径解析）
 app/config/manager.py            # ConfigManager — JSON 配置读写，模块级单例 config_manager
 app/services/                    # 各服务均为「类 + 模块级单例」模式
   time_service.py                #   工时计算、start_time.txt 读写
@@ -30,19 +30,21 @@ app/ui/
   tray_menu.py                   # 系统托盘菜单
   dialogs/                       # 各对话框（均为 QWidget/QDialog 子类）
 app/utils/
-  logger.py                      # 日志（get_project_root 处理双模式路径，输出到 logs/app.log）
+  logger.py                      # 日志（get_project_root 处理路径解析，输出到 logs/app.log）
   version.py                     # 语义版本比较
 ```
 
 **关键模式**：服务层通过 `time_service = TimeService()` 在模块底部创建单例，其他模块直接 `from app.services import time_service` 使用。`config_manager` 同理。修改服务接口时注意所有调用方。
 
-## 双模式路径（重要）
+## 路径解析（重要）
 
-项目同时支持 **exe 打包模式** 和 **Python 脚本模式**，路径定位逻辑分布在两处：
+**仅发布 exe 版本**（PyInstaller --onefile），脚本模式已废弃；但开发/测试仍从源码运行，
+路径定位逻辑因此保留了 frozen 判断，分布在两处：
 - `app/config/constants.py` → `get_base_dir()`
 - `app/utils/logger.py` → `get_project_root()`
 
-两者逻辑相同：`getattr(sys, 'frozen', False)` 判断是否 exe 模式。修改路径逻辑时必须同步两处。
+两者逻辑相同：`getattr(sys, 'frozen', False)` 区分「exe 运行（exe 所在目录）/ 源码运行（项目根）」。
+修改路径逻辑时必须同步两处。不要删除 frozen 判断，否则测试运行时配置/日志会写进 Python 安装目录。
 
 ## 开发命令
 
@@ -59,16 +61,15 @@ python -m unittest discover tests -v
 # Lint
 flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-# 打包
-pyinstaller --onefile --windowed --name MiniTools main.py
+# 打包（构建参数统一在 MiniTools.spec，勿用命令行参数另行打包）
+pyinstaller MiniTools.spec
 ```
 
 ## 版本方案
 
-- 人工版本定义在 `app/__init__.py` 的 `__version__`
+- 人工版本定义在 `app/__init__.py` 的 `__version__`（项目无 setup.py / pyproject.toml，读取方式：`python -c "from app import __version__; print(__version__)"`）
 - CI 自动发布时追加 commit count：`{__version__}.{commit_count}`（如 `1.0.0.142`）
 - 版本比较使用 `app/utils/version.py` 的 `is_newer_version()`
-- **禁止 `import setup`** — setup.py 顶层调用 `setup()` 会触发 `sys.exit(1)`，导致进程终止
 
 ## 配置文件
 
@@ -81,12 +82,10 @@ pyinstaller --onefile --windowed --name MiniTools main.py
 - 检查更新：直连 `api.github.com`（不走代理），仓库 `uuvccc/WorkDayTimer`
 - 下载更新：先直连 GitHub，失败后依次尝试 `GITHUB_PROXY_MIRRORS` 列表中的镜像
 - 安全校验：文件大小校验 + PE 头 MZ 魔数校验（防止代理返回 HTML 错误页）
-- exe 模式更新：生成 `updater.bat`，请求管理员权限 → taskkill → 替换 exe → 重启
-- 脚本模式更新：直接下载到当前目录
+- exe 更新：生成 `updater.bat`，请求管理员权限 → taskkill → 替换 exe → 重启
 
 ## 禁止事项
 
-- **禁止** `import setup` 或 `from setup import ...`（会导致进程退出）
 - **禁止** 假设路径 — 所有文件路径必须通过 `constants.py` 的常量获取，不能硬编码相对路径
 - **禁止** 在服务单例模块中执行有副作用的顶层代码（除创建单例实例外）
 - **禁止** 修改 `get_base_dir()` / `get_project_root()` 逻辑时只改一处
@@ -94,10 +93,9 @@ pyinstaller --onefile --windowed --name MiniTools main.py
 
 ## 注意事项
 
-- 应用启动时会 `os.chdir()` 到 exe/脚本所在目录（防止开机自启时 CWD 为 System32）
+- 应用启动时会 `os.chdir()` 到 exe 所在目录（防止开机自启时 CWD 为 System32）
 - Windows AppUserModelID 设为 `"MiniTools"`，确保任务栏图标正确
 - 开机自启注册表项：新旧名称分别为 `"MiniTools"` 和 `"WorkDayTimer"`，设置时会清理旧名称
-- 开机自启脚本模式使用 `pythonw.exe`（无控制台窗口）
 - QQ 窗口通过 `win32gui.EnumWindows` 匹配标题含 `"QQ..exe"` 的窗口
 - 主窗口：无边框 + 置顶 + 半透明背景，初始位置动态计算为屏幕右上角
 

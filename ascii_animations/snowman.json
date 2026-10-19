@@ -1,0 +1,17 @@
+{
+  "name": "snowman",
+  "color": "#4682B4",
+  "fps": 1,
+  "rainbow": false,
+  "idle": true,
+  "frames": [
+    [
+      "   ___   ",
+      "  (o_o)  ",
+      "  (___)  ",
+      "   | |   ",
+      "  /   \\  ",
+      " (     ) "
+    ]
+  ]
+}

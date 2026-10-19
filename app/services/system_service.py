@@ -102,33 +102,9 @@ class SystemService:
             logger.error(f"Shutdown failed: {e}")
             return False, f"Shutdown failed: {e}"
 
-    def get_exe_path(self):
-        """Get the path to the current executable or script"""
-        if self.is_running_as_exe():
-            return sys.executable
-        return os.path.abspath(sys.argv[0])
-
-    def is_running_as_exe(self):
-        """Check if running as PyInstaller-frozen executable"""
-        return getattr(sys, 'frozen', False)
-
     def _get_startup_command(self):
-        """生成写入注册表 Run 键的启动命令行
-
-        - exe 模式：直接返回 exe 完整路径（带引号）
-        - 脚本模式：用 pythonw.exe（无控制台窗口）启动脚本
-        """
-        if self.is_running_as_exe():
-            # PyInstaller 打包的 exe：用 sys.executable 获取真实路径
-            return f'"{sys.executable}"'
-        else:
-            # Python 脚本模式：用 pythonw.exe 避免弹出控制台
-            python_dir = os.path.dirname(sys.executable)
-            pythonw_path = os.path.join(python_dir, "pythonw.exe")
-            if not os.path.exists(pythonw_path):
-                pythonw_path = sys.executable  # 回退到 python.exe
-            script_path = os.path.abspath(sys.argv[0])
-            return f'"{pythonw_path}" "{script_path}"'
+        """生成写入注册表 Run 键的启动命令行（exe 完整路径，带引号）"""
+        return f'"{sys.executable}"'
 
 
 system_service = SystemService()

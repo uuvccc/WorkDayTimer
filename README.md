@@ -107,9 +107,9 @@ WorkDayTimer/
 │       └── version.py         # Version comparison utility
 ├── tests/                     # Unit tests
 ├── images/                    # Timer images
+├── ascii_animations/          # Built-in & custom ASCII animations
 ├── requirements.txt           # Dependencies
-├── setup.py                   # Package setup
-└── workday_timer.spec         # PyInstaller configuration
+└── MiniTools.spec             # PyInstaller configuration
 ```
 
 ## Building
@@ -117,14 +117,10 @@ WorkDayTimer/
 To build the executable:
 
 ```bash
-python workday_timer.spec
+pyinstaller MiniTools.spec
 ```
 
-Or using PyInstaller directly:
-
-```bash
-pyinstaller --onefile --windowed --name MiniTools main.py
-```
+All build options (onefile, windowed, icon, bundled `images/` and `ascii_animations/`) are defined in `MiniTools.spec` — use the spec as the single build entry point.
 
 ## Contributing
 

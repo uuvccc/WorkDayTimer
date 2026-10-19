@@ -21,14 +21,16 @@ jobs:
         fetch-depth: 0  # Needed to get commit history for versioning
 
     - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pyinstaller
+        # 构建工具固定大版本区间：PyInstaller 大版本升级曾数次引入破坏性变更，
+        # 不固定会让发布流水线在某次 CI 缓存刷新后突然挂掉
+        pip install "flake8>=7.0,<8" "pyinstaller>=6.10,<7"
         if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
     - name: Lint with flake8
@@ -45,8 +47,7 @@ jobs:
     - name: Generate version number
       id: version
       run: |
-        # Get current version from package metadata (avoid importing setup.py,
-        # which runs setup() and exits the process)
+        # 版本号定义在 app/__init__.py 的 __version__（setup.py 已删除）
         $version = (python -c "from app import __version__; print(__version__)")
         # Get commit count
         $commitCount = git rev-list --count HEAD
@@ -57,7 +58,8 @@ jobs:
         # 每次启动都会误判有新版本而反复提示更新。
         Set-Content -Path app/__init__.py -Value "__version__ = '$newVersion'"
         Write-Host "Injected version: $newVersion"
-        echo "::set-output name=version::$newVersion"
+        # ::set-output 已被 GitHub 禁用，使用 $GITHUB_OUTPUT 写 step 输出
+        "version=$newVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
     - name: Check if release tag already exists
       id: check_release
@@ -78,9 +80,10 @@ jobs:
     - name: Build with PyInstaller
       if: steps.check_release.outputs.exists == 'false'
       run: |
-        # --add-data 必须带上 images 目录，否则 exe 运行时找不到托盘图标和宠物图片
-        # --icon 用多尺寸 icon.ico 作为 exe 外壳图标
-        pyinstaller --onefile --windowed --name MiniTools --add-data "images;images" --icon images/icon.ico main.py
+        # 打包参数统一收敛在 MiniTools.spec（datas: images + ascii_animations，
+        # onefile/windowed/icon 均在 spec 内定义），CI 与本地构建共用同一入口，
+        # 避免命令行参数与 spec 双份维护漂移
+        pyinstaller MiniTools.spec
 
     - name: Generate changelog
       id: changelog
@@ -146,26 +149,14 @@ jobs:
         Write-Host "Changelog generated:"
         Write-Host $body
 
-    - name: Create Release
-      id: create_release
+    - name: Create GitHub Release
       if: steps.check_release.outputs.exists == 'false'
-      uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ steps.version.outputs.version }}
-        release_name: Release v${{ steps.version.outputs.version }}
-        body_path: changelog.md
-        draft: false
-        prerelease: false
-
-    - name: Upload Release Asset
-      if: steps.check_release.outputs.exists == 'false'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/MiniTools.exe
-        asset_name: MiniTools.exe
-        asset_content_type: application/octet-stream
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # actions/create-release / upload-release-asset 已被官方归档弃用，
+        # 统一改用预装的 gh CLI 一步创建 release 并上传 exe 资产
+        $tag = "v${{ steps.version.outputs.version }}"
+        gh release create $tag "./dist/MiniTools.exe#MiniTools.exe" `
+          --title "Release $tag" `
+          --notes-file changelog.md

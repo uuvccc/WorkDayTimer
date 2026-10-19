@@ -67,21 +67,17 @@ class UpdateService:
         self._download_complete_callback = complete_callback
 
     def get_current_version(self):
-        """Get current version from package metadata.
+        """Get current version from app/__init__.py.
 
-        注意：不能 `import setup` —— setup.py 顶层调用 setup() 会触发
-        distutils/setuptools 的 CLI 解析，无命令参数时 `sys.exit(1)`，
-        SystemExit 是 BaseException，无法被 `except Exception` 捕获，
-        会从 Qt 槽中直接终止进程（表现为打开设置对话框后程序闪退）。
+        无法确定版本时返回 None（而非静默回退到 "1.0.0"），
+        否则 current 会被当成旧版本，GitHub latest 永远比它新，
+        导致每次启动都误判有更新。
         """
         try:
             from app import __version__
             return __version__
         except Exception as e:
             logger.error(f"Error getting current version: {e}")
-            # 无法确定版本时返回 None（而非静默回退到 "1.0.0"），
-            # 否则 current 会被当成旧版本，GitHub latest 永远比它新，
-            # 导致每次启动都误判有更新。
             return None
 
     def check_for_updates(self):
@@ -220,14 +216,8 @@ del "%~f0"
             logger.error(error)
             return False, error
 
-    def get_download_path(self):
-        """Get the path where the update should be downloaded."""
-        local_exe_path = sys.argv[0]
-        is_running_as_exe = local_exe_path.endswith('.exe')
-
-        if not is_running_as_exe:
-            return os.path.join(os.getcwd(), self.EXE_NAME), False
-
-        return local_exe_path, True
+    def get_local_exe_path(self):
+        """获取当前运行的 exe 路径（更新替换目标）。"""
+        return sys.executable
 
 update_service = UpdateService()

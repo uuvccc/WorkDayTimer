@@ -1,0 +1,16 @@
+{
+  "name": "flower",
+  "color": "#FF69B4",
+  "fps": 1,
+  "rainbow": true,
+  "idle": true,
+  "frames": [
+    [
+      "   (@)   ",
+      "   \\|/   ",
+      "    |    ",
+      "   / \\   ",
+      "  _/ \\_  "
+    ]
+  ]
+}

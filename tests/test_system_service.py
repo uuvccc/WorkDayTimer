@@ -3,7 +3,6 @@ Tests for SystemService — auto-start, shutdown, QQ window toggle.
 All registry operations are mocked; no real system changes occur.
 """
 import sys
-import os
 import unittest
 from unittest.mock import patch, MagicMock, PropertyMock
 
@@ -94,7 +93,6 @@ class TestToggleRunOnStartup(unittest.TestCase):
         fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
 
         with patch.dict('sys.modules', winreg=fake_winreg), \
-             patch.object(self.svc, 'is_running_as_exe', return_value=True), \
              patch.object(sys, 'executable', r'C:\Tools\MiniTools.exe'):
             ok, msg = self.svc.toggle_run_on_startup(True)
         self.assertTrue(ok, msg=f"Expected True, got: {msg}")
@@ -131,7 +129,6 @@ class TestToggleRunOnStartup(unittest.TestCase):
         fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
 
         with patch.dict('sys.modules', winreg=fake_winreg), \
-             patch.object(self.svc, 'is_running_as_exe', return_value=True), \
              patch.object(sys, 'executable', r'C:\Tools\MiniTools.exe'):
             ok, msg = self.svc.toggle_run_on_startup(True)
         self.assertTrue(ok)
@@ -163,7 +160,6 @@ class TestToggleRunOnStartup(unittest.TestCase):
         fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
 
         with patch.dict('sys.modules', winreg=fake_winreg), \
-             patch.object(self.svc, 'is_running_as_exe', return_value=True), \
              patch.object(sys, 'executable', r'C:\Tools\MiniTools.exe'):
             self.svc.toggle_run_on_startup(True)
         self.assertIn("MiniTools", reg_key._values)
@@ -210,67 +206,24 @@ class TestIsRunOnStartup(unittest.TestCase):
 
 
 class TestGetStartupCommand(unittest.TestCase):
-    """Tests for _get_startup_command() with exe / script detection."""
+    """Tests for _get_startup_command()（exe-only：直接用 sys.executable）。"""
 
     def setUp(self):
         from app.services.system_service import SystemService
         self.svc = SystemService()
 
-    def test_frozen_exe_returns_exe_path(self):
-        """打包为 exe：返回 exe 路径"""
-        with patch.object(self.svc, 'is_running_as_exe', return_value=True), \
-             patch.object(sys, 'executable', r'C:\Program Files\MiniTools\MiniTools.exe'):
+    def test_returns_exe_path(self):
+        """返回 exe 完整路径"""
+        with patch.object(sys, 'executable', r'C:\Program Files\MiniTools\MiniTools.exe'):
             cmd = self.svc._get_startup_command()
             self.assertEqual(cmd, '"C:\\Program Files\\MiniTools\\MiniTools.exe"')
 
-    def test_script_mode_uses_pythonw(self):
-        """脚本模式：使用 pythonw.exe + 脚本路径"""
-        with patch.object(self.svc, 'is_running_as_exe', return_value=False), \
-             patch.object(sys, 'executable', r'C:\Python310\python.exe'), \
-             patch.object(sys, 'argv', [r'D:\repo\MiniTools\main.py']), \
-             patch.object(os.path, 'exists', return_value=True):
-            cmd = self.svc._get_startup_command()
-        expected_pythonw = os.path.join(os.path.dirname(r'C:\Python310\python.exe'), "pythonw.exe")
-        self.assertIn(expected_pythonw, cmd)
-        self.assertIn(r'D:\repo\MiniTools\main.py', cmd)
-
-    def test_script_mode_fallback_when_no_pythonw(self):
-        """脚本模式 pythonw.exe 不存在时回退到 python.exe"""
-        with patch.object(self.svc, 'is_running_as_exe', return_value=False), \
-             patch.object(sys, 'executable', r'C:\Python310\python.exe'), \
-             patch.object(sys, 'argv', [r'D:\repo\MiniTools\main.py']), \
-             patch.object(os.path, 'exists', return_value=False):
-            cmd = self.svc._get_startup_command()
-        self.assertIn('python.exe', cmd)
-
     def test_startup_command_has_quotes(self):
-        """启动命令中的路径都带引号"""
-        with patch.object(self.svc, 'is_running_as_exe', return_value=True), \
-             patch.object(sys, 'executable', r'C:\My Tools\app.exe'):
+        """启动命令中的路径带引号"""
+        with patch.object(sys, 'executable', r'C:\My Tools\app.exe'):
             cmd = self.svc._get_startup_command()
         self.assertTrue(cmd.startswith('"'))
         self.assertTrue(cmd.endswith('"'))
-
-
-class TestGetExePath(unittest.TestCase):
-    """Tests for get_exe_path()."""
-
-    def setUp(self):
-        from app.services.system_service import SystemService
-        self.svc = SystemService()
-
-    def test_frozen_returns_sys_executable(self):
-        """打包模式：返回 sys.executable"""
-        with patch.object(self.svc, 'is_running_as_exe', return_value=True), \
-             patch.object(sys, 'executable', r'C:\Tools\MiniTools.exe'):
-            self.assertEqual(self.svc.get_exe_path(), r'C:\Tools\MiniTools.exe')
-
-    def test_script_returns_argv_absolute(self):
-        """脚本模式：返回脚本绝对路径"""
-        with patch.object(self.svc, 'is_running_as_exe', return_value=False), \
-             patch.object(sys, 'argv', ['main.py']), \
-             patch('os.path.abspath', return_value=r'D:\repo\MiniTools\main.py'):
-            self.assertEqual(self.svc.get_exe_path(), r'D:\repo\MiniTools\main.py')
 
 
 class TestFullEnableDisableCycle(unittest.TestCase):
@@ -286,7 +239,6 @@ class TestFullEnableDisableCycle(unittest.TestCase):
         fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
 
         with patch.dict('sys.modules', winreg=fake_winreg), \
-             patch.object(self.svc, 'is_running_as_exe', return_value=True), \
              patch.object(sys, 'executable', r'C:\Tools\MiniTools.exe'):
             # 初始状态：未启用
             self.assertFalse(self.svc.is_run_on_startup())

@@ -322,7 +322,9 @@ class MainWindow(QWidget):
 
     def _setup_ascii_animation(self):
         """初始化显示：随机选待机场景 + 掷一次显示模式（一半图片/一半 ASCII）。"""
-        self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
+        # 动画全部来自外部文件，可能一个都没加载到（文件夹被删/损坏）
+        self._idle_scene = (
+            random.choice(ascii_art.IDLE_SCENES) if ascii_art.IDLE_SCENES else None)
         self._scene_name = None
         self._frame_index = 0
         self._celebrating = False
@@ -340,8 +342,9 @@ class MainWindow(QWidget):
         self._apply_mode()
 
     def _switch_idle_scene(self):
-        """每 20s 换一个待机形象（猫/兔/咖啡/打工人）。"""
-        self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
+        """每 20s 换一个待机形象（场景来自内置默认与用户自定义动画）。"""
+        if ascii_art.IDLE_SCENES:
+            self._idle_scene = random.choice(ascii_art.IDLE_SCENES)
 
     def reload_ascii_animations(self):
         """托盘触发：重新扫描 ascii_animations/ 目录，并立刻切换新动画展示。"""
@@ -368,7 +371,10 @@ class MainWindow(QWidget):
 
     def _set_scene(self, name):
         """切换场景并重置播放（fps/颜色/文本格式跟着场景走）。"""
-        if self._scene_name == name:
+        if name not in ascii_art.SCENES:
+            # 场景可能随文件被删而消失（默认动画也来自外部文件），回退到待机场景
+            name = self._idle_scene
+        if name is None or name == self._scene_name:
             return
         self._scene_name = name
         self._frame_index = 0
@@ -522,16 +528,7 @@ class MainWindow(QWidget):
     def update_application(self):
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton
 
-        local_exe_path, is_running_as_exe = update_service.get_download_path()
-
-        if not is_running_as_exe:
-            reply = QMessageBox.question(self, "Update Confirmation",
-                                         "Application is running as a Python script.\n"
-                                         "The executable will be downloaded to the current directory.\n"
-                                         f"Download location: {local_exe_path}\n"
-                                         "Do you want to continue?")
-            if reply == QMessageBox.No:
-                return
+        local_exe_path = update_service.get_local_exe_path()
 
         progress_dialog = QDialog(self)
         progress_dialog.setWindowTitle("Downloading Update")
@@ -591,7 +588,7 @@ class MainWindow(QWidget):
                 elif not download_success:
                     QMessageBox.critical(self, "Update Failed", "Download failed for unknown reason.")
                 else:
-                    self._complete_update(temp_exe_path, local_exe_path, is_running_as_exe)
+                    self._complete_update(temp_exe_path, local_exe_path)
 
         status_check_timer.timeout.connect(check_download_status)
         status_check_timer.start(100)
@@ -606,24 +603,14 @@ class MainWindow(QWidget):
             label.setText(text)
         QApplication.processEvents()
 
-    def _complete_update(self, temp_exe_path, local_exe_path, is_running_as_exe):
-        if not is_running_as_exe:
-            import shutil
-            try:
-                shutil.move(temp_exe_path, local_exe_path)
-                QMessageBox.information(self, "Update Complete",
-                                        f"Executable downloaded successfully!\n"
-                                        f"Location: {local_exe_path}\n"
-                                        f"Run this file to start the application as an executable.")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to move downloaded file: {e}")
+    def _complete_update(self, temp_exe_path, local_exe_path):
+        """生成 updater.bat 替换 exe 并重启（taskkill → 替换 → 拉起）。"""
+        updater_script = update_service.prepare_updater_script(temp_exe_path, local_exe_path)
+        if updater_script:
+            update_service.run_updater(updater_script)
+            self.exit_app()
         else:
-            updater_script = update_service.prepare_updater_script(temp_exe_path, local_exe_path)
-            if updater_script:
-                update_service.run_updater(updater_script)
-                self.exit_app()
-            else:
-                QMessageBox.critical(self, "Error", "Failed to prepare updater script.")
+            QMessageBox.critical(self, "Error", "Failed to prepare updater script.")
 
     def toggle_qq_window(self):
         logger.debug("Toggle QQ window triggered (Enter key)")

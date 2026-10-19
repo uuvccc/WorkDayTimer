@@ -2,11 +2,50 @@
 
 ## 当前状态
 
-**最新完成**：手动检查更新与「启动时自动检测」开关解耦（2026-09）
+**最新完成**：打包工程化现代化——spec 唯一入口、CI 弃用组件替换、删 setup.py（2026-10）
 
 ---
 
 ## 变更日志
+
+### 2026-10 — 打包工程化现代化
+
+**改动**：
+- 构建入口收敛：`MiniTools.spec` 成为唯一打包入口（onefile/windowed/icon/datas 全在 spec 内），CI 与本地统一 `pyinstaller MiniTools.spec`；删除 `workday_timer.spec` 与 CI 命令行参数
+- 构建工具固定大版本区间：`pyinstaller>=6.10,<7`、`flake8>=7.0,<8`（两个 workflow 一致）
+- CI 弃用组件替换：`setup-python@v3` → `@v5`；`create-release@v1` + `upload-release-asset@v1`（已归档）→ `gh release create`；`::set-output`（GitHub 已禁用）→ `$GITHUB_OUTPUT`
+- `python-app.yml` 改为纯校验流水线（lint + test + spec 构建验证），去掉 release 触发与资产上传（避免与 auto-release 重复上传），permissions 降为 `contents: read`
+- 删除 `setup.py`（exe-only 后无消费者，字段陈旧），「禁止 import setup」的坑从根源消除；版本继续从 `app/__init__.py` 读取
+- 文档同步：AGENTS.md / README.md / README_CN.md 打包命令与目录树更新
+
+---
+
+### 2026-10 — 全项目废弃脚本模式（仅发布 exe）
+
+**决策**：只使用 exe 版本，脚本模式不再是用户可用的运行方式；开发/测试仍从源码运行。
+
+**改动**：
+- `system_service.py` — 删除 `get_exe_path()` / `is_running_as_exe()`，开机自启命令固定为 `sys.executable`（移除 pythonw 脚本分支）
+- `update_service.py` — `get_download_path()` 改为 `get_local_exe_path()`，直接返回 `sys.executable`
+- `main_window.py` — 更新流程移除「脚本模式下载到当前目录」确认弹窗与 shutil.move 安装分支，统一走 updater.bat
+- `constants.py` / `logger.py` 的 frozen 路径判断**保留**（源码运行开发/测试仍需要），文档表述改为「源码运行」
+- AGENTS.md / ascii_animations/README.md 同步更新为 exe-only 说明
+
+---
+
+### 2026-10 — ASCII 动画全部外置为文件
+
+**问题**：49 个内置 ASCII 场景硬编码在 `app/ui/ascii_art.py` 的 `SCENES` 字典里（约 1200 行），
+与 `ascii_animations/` 文件夹里的用户自定义动画两套体系并存，维护割裂。
+
+**改动**：
+- 内置场景全部导出为 `ascii_animations/*.json`（49 个；clock/celebrate/sleepy 等状态场景标记 `idle: false`，行为不变），与用户自定义动画放同一文件夹
+- `ascii_art.py` 移除硬编码字典，启动时统一从动画文件加载：exe 模式默认动画由 `--add-data` 打包进 exe（`sys._MEIPASS` 只读），用户目录同名文件覆盖默认；脚本模式两者本就是同一目录
+- `main_window.py` 增加兜底：场景文件被删/未加载时回退待机场景或图片模式，不再假设场景名必然存在
+- CI（auto-release.yml）与 MiniTools.spec / workday_timer.spec 打包参数加上 `ascii_animations` 目录
+- 更新 `ascii_animations/README.md` 说明内置默认 + 用户自定义的双来源加载规则
+
+---
 
 ### 2026-09 — 手动检查更新不受自动检测开关限制
 

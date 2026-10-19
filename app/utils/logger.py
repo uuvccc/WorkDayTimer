@@ -3,7 +3,7 @@ import os
 import sys
 
 def get_project_root():
-    """获取项目根目录：exe 模式下为 exe 所在目录，脚本模式下为 __file__ 上两级"""
+    """获取项目根目录：exe 运行时为 exe 所在目录，源码运行（开发/测试）时为 __file__ 上两级"""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
