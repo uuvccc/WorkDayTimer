@@ -17,6 +17,7 @@
 - `python-app.yml` 改为纯校验流水线（lint + test + spec 构建验证），去掉 release 触发与资产上传（避免与 auto-release 重复上传），permissions 降为 `contents: read`
 - 删除 `setup.py`（exe-only 后无消费者，字段陈旧），「禁止 import setup」的坑从根源消除；版本继续从 `app/__init__.py` 读取
 - 文档同步：AGENTS.md / README.md / README_CN.md 打包命令与目录树更新
+- **修复**：`.gitignore` 的 `*.spec` 规则导致 `MiniTools.spec` 从未入库，CI 检出后找不到 spec 直接构建失败；已加 `!MiniTools.spec` 白名单并纳入版本控制（教训：改用 spec 作为构建入口前，先确认该文件在版本控制中）
 
 ---
 

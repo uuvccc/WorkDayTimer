@@ -31,6 +31,9 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# MiniTools.spec 是手工维护的唯一构建入口（CI 与本地共用 pyinstaller MiniTools.spec），
+# 必须纳入版本控制，否则 CI 检出后找不到 spec 会直接构建失败；其余 *.spec 仍忽略
+!MiniTools.spec
 
 # Installer logs
 pip-log.txt

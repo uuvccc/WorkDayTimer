@@ -46,6 +46,7 @@ jobs:
 
     - name: Generate version number
       id: version
+      shell: pwsh
       run: |
         # 版本号定义在 app/__init__.py 的 __version__（setup.py 已删除）
         $version = (python -c "from app import __version__; print(__version__)")
