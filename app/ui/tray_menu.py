@@ -53,6 +53,10 @@ class TrayMenu:
         self.settings_action = QAction("Settings...", self.parent)
         self.menu.addAction(self.settings_action)
 
+        # Manual update check
+        self.check_updates_action = QAction("Check for Updates...", self.parent)
+        self.menu.addAction(self.check_updates_action)
+
         self.menu.addSeparator()
 
         # Quit

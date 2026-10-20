@@ -27,6 +27,9 @@ from app.utils.logger import logger
 # 全局输入反馈专用 Qt 事件类型（用于 Hook 线程 → GUI 线程投递）
 INPUT_FEEDBACK_EVENT_TYPE = QEvent.registerEventType()
 
+# 手动检查更新结果事件（后台检查线程 → GUI 线程投递）
+MANUAL_UPDATE_CHECK_EVENT_TYPE = QEvent.registerEventType()
+
 
 class InputFeedbackEvent(QEvent):
     """携带按键气泡文本（已渲染成键帽 ASCII）的自定义事件。"""
@@ -34,6 +37,16 @@ class InputFeedbackEvent(QEvent):
     def __init__(self, text):
         super().__init__(INPUT_FEEDBACK_EVENT_TYPE)
         self.text = text
+
+
+class ManualUpdateCheckEvent(QEvent):
+    """手动检查更新的结果事件。latest_version 为 None 表示检查失败。"""
+
+    def __init__(self, has_update, latest_version, current_version):
+        super().__init__(MANUAL_UPDATE_CHECK_EVENT_TYPE)
+        self.has_update = has_update
+        self.latest_version = latest_version
+        self.current_version = current_version
 
 
 class _DragFilter(QObject):
@@ -200,8 +213,10 @@ class MainWindow(QWidget):
         self.tray_menu.custom_ascii_action.triggered.connect(self.show_custom_ascii_help)
         self.tray_menu.reload_animations_action.triggered.connect(self.reload_ascii_animations)
         self.tray_menu.settings_action.triggered.connect(self.show_settings_dialog)
+        self.tray_menu.check_updates_action.triggered.connect(self.check_updates_manually)
         self.tray_menu.exit_action.triggered.connect(self.exit_app)
         self.tray_menu.tray_icon.activated.connect(self.on_tray_icon_activated)
+        self._manual_checking = False
 
     def _setup_keyboard_hook(self):
         logger.debug("Setting up keyboard hook")
@@ -287,6 +302,49 @@ class MainWindow(QWidget):
                 QApplication.postEvent(self, QEvent(QEvent.User))
         except Exception as e:
             logger.error(f"Error checking for updates: {e}", exc_info=True)
+
+    def check_updates_manually(self):
+        """托盘菜单手动触发更新检查：与自动检查不同，任何结果都反馈给用户。"""
+        if self._manual_checking:
+            logger.debug("Manual update check already in progress, ignoring")
+            return
+        self._manual_checking = True
+        logger.info("Manual update check triggered from tray menu")
+        self.tray_menu.show_message("MiniTools", "Checking for updates...")
+        import threading
+        threading.Thread(target=self._do_manual_check_updates, daemon=True).start()
+
+    def _do_manual_check_updates(self):
+        try:
+            has_update, latest_version, current_version = update_service.check_for_updates()
+            logger.info(f"Manual update check result: has_update={has_update}, "
+                        f"latest={latest_version}, current={current_version}")
+            QApplication.postEvent(
+                self, ManualUpdateCheckEvent(has_update, latest_version, current_version))
+        except Exception as e:
+            logger.error(f"Error in manual update check: {e}", exc_info=True)
+            QApplication.postEvent(self, ManualUpdateCheckEvent(False, None, None))
+
+    def _on_manual_check_done(self, event):
+        self._manual_checking = False
+        if event.has_update:
+            self._show_update_available_dialog()
+        elif event.latest_version:
+            self.tray_menu.show_message(
+                "MiniTools", f"Already up to date (v{event.latest_version}).")
+        else:
+            self.tray_menu.show_message(
+                "MiniTools", "Failed to check for updates. Please try again later.",
+                QSystemTrayIcon.Warning)
+
+    def _show_update_available_dialog(self):
+        ReminderDialog.show_update_available(
+            parent=self,
+            countdown_seconds=config_manager.check_update_delay,
+            on_update=self._on_update_now,
+            on_defer=self._on_defer_update,
+            on_disable=self._on_disable_update,
+        )
 
     def update_timer_display(self):
         seconds = 0
@@ -663,13 +721,10 @@ class MainWindow(QWidget):
             return True
         if event.type() == QEvent.User:
             logger.info("Update available event received, showing non-modal dialog")
-            ReminderDialog.show_update_available(
-                parent=self,
-                countdown_seconds=config_manager.check_update_delay,
-                on_update=self._on_update_now,
-                on_defer=self._on_defer_update,
-                on_disable=self._on_disable_update,
-            )
+            self._show_update_available_dialog()
+            return True
+        if event.type() == MANUAL_UPDATE_CHECK_EVENT_TYPE:
+            self._on_manual_check_done(event)
             return True
         return super().event(event)
 
