@@ -8,7 +8,7 @@ MiniTools（WorkDayTimer）— Windows 桌面宠物形态的工作时间追踪�
 
 - Python 3.10+（CI 使用 3.10，`python_requires=">=3.6"`）
 - PyQt5 >= 5.15.0（GUI）
-- keyboard / mouse / Pillow / requests / numpy / pywin32
+- keyboard / mouse / Pillow / requests / pywin32（**已移除 numpy**，图片透明化为纯 Python 实现）
 - PyInstaller（打包）、flake8（lint）、unittest（测试）
 - GitHub Actions（CI/CD，runs-on: windows-latest）
 

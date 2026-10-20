@@ -2,11 +2,25 @@
 
 ## 当前状态
 
-**最新完成**：打包工程化现代化——spec 唯一入口、CI 弃用组件替换、删 setup.py（2026-10）
+**最新完成**：发布产物瘦身——exe 47MB → 22MB（本地构建），排除未用 Qt 组件、移除 numpy（2026-10）
 
 ---
 
 ## 变更日志
+
+### 2026-10 — 发布产物瘦身（减小每次更新的下载体积）
+
+**背景**：解包实测 v1.0.0.113（46.98MB）：Qt5/Qt DLL 占 52%，其中 opengl32sw.dll（7.4MB，软件 OpenGL 回退）、Qt5Quick/Qml、Qt5Network+OpenSSL 等均未使用；numpy 占 16%（7.4MB）但仅用于 `image.py` 的图片透明化；资源文件（动画+图片）仅占 0.3%，分离资源对更新体积无意义。
+
+**改动**：
+- `app/utils/image.py` — 移除 numpy，改为纯 Python 实现（BFS flood fill 替代迭代膨胀；距离平方比较避免每像素开方）。新旧实现逐字节对比零差异（真实图片 + 5 组合成图），且新实现更快
+- `MiniTools.spec` — `excludes` 排除 29 个未用 Qt 模块；按文件名前缀过滤大型无关 DLL（opengl32sw/ANGLE/OpenSSL/Qt5Quick 等）；平台插件只留 `qwindows.dll`；剔除 Qt 翻译文件
+- `requirements.txt` / `AGENTS.md` — 移除 numpy
+- `tests/test_image.py` — 新增 5 个语义测试（边缘背景透明、内容保留、白色孤岛不透明、全白图、缺文件不崩溃）
+
+**效果**：本地构建 53.8MB → 23.0MB（-57%）；冒烟测试通过（完整初始化无报错）。注意 **UPX 未启用**：CI 无 upx 且 onefile 已 zlib 压缩，UPX 增益有限且有杀软误报风险。
+
+---
 
 ### 2026-10 — 打包工程化现代化
 
