@@ -4,7 +4,8 @@ import sys
 
 def get_base_dir():
     """可写文件目录（settings.json / start_time.txt / app.log 等）。
-    冻结（PyInstaller）时放在 exe 所在目录，保证配置持久化。"""
+    Nuitka standalone 模式下 exe 与所有依赖/资源同目录，放在 exe 所在目录，
+    保证配置持久化。"""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,10 +16,10 @@ BASE_DIR = get_base_dir()
 
 def get_resource_dir():
     """只读资源目录（images/）。
-    PyInstaller --onefile 会把 --add-data 的图片解压到 sys._MEIPASS 临时目录，
-    而不是 exe 旁边，所以资源必须从 _MEIPASS 读取。"""
+    Nuitka standalone 模式下 --include-data-dir 的资源直接放在 exe 旁边，
+    不再解压到临时目录，所以资源目录就是 exe 所在目录。"""
     if getattr(sys, 'frozen', False):
-        return getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        return os.path.dirname(sys.executable)
     return BASE_DIR
 
 
@@ -27,7 +28,7 @@ RESOURCE_DIR = get_resource_dir()
 
 def resolve_resource(rel_path):
     """解析资源文件路径：优先用可写目录（exe 旁 / 项目根）下用户放置的同名资源，
-    找不到再回退到内置资源（_MEIPASS）。
+    找不到再回退到内置资源。
     这样用户可以把自定义图片放到 exe 旁边的 images/ 文件夹里覆盖默认资源。"""
     local = os.path.join(BASE_DIR, rel_path)
     if os.path.exists(local):

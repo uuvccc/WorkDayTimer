@@ -9,7 +9,7 @@ MiniTools（WorkDayTimer）— Windows 桌面宠物形态的工作时间追踪�
 - Python 3.10+（CI 使用 3.10，`python_requires=">=3.6"`）
 - PyQt5 >= 5.15.0（GUI）
 - keyboard / mouse / Pillow / requests / pywin32（**已移除 numpy**，图片透明化为纯 Python 实现）
-- PyInstaller（打包）、flake8（lint）、unittest（测试）
+- Nuitka（standalone 打包）、flake8（lint）、unittest（测试）
 - GitHub Actions（CI/CD，runs-on: windows-latest）
 
 ## 架构导航
@@ -38,7 +38,7 @@ app/utils/
 
 ## 路径解析（重要）
 
-**仅发布 exe 版本**（PyInstaller --onefile），脚本模式已废弃；但开发/测试仍从源码运行，
+**仅发布 exe 版本**（Nuitka standalone），脚本模式已废弃；但开发/测试仍从源码运行，
 路径定位逻辑因此保留了 frozen 判断，分布在两处：
 - `app/config/constants.py` → `get_base_dir()`
 - `app/utils/logger.py` → `get_project_root()`
@@ -61,8 +61,8 @@ python -m unittest discover tests -v
 # Lint
 flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-# 打包（构建参数统一在 MiniTools.spec，勿用命令行参数另行打包）
-pyinstaller MiniTools.spec
+# 打包（构建参数统一在 build.py，勿用命令行参数另行打包）
+python build.py
 ```
 
 ## 版本方案
@@ -80,9 +80,20 @@ pyinstaller MiniTools.spec
 ## 更新机制
 
 - 检查更新：直连 `api.github.com`（不走代理），仓库 `uuvccc/WorkDayTimer`
-- 下载更新：先直连 GitHub，失败后依次尝试 `GITHUB_PROXY_MIRRORS` 列表中的镜像
-- 安全校验：文件大小校验 + PE 头 MZ 魔数校验（防止代理返回 HTML 错误页）
-- exe 更新：生成 `updater.bat`，请求管理员权限 → taskkill → 替换 exe → 重启
+- 增量更新（默认）：下载 `MiniTools.manifest.json` → 比对本地文件的 size/sha256 → 只下载有差异的逐文件 `.gz` 资产 → 解压并校验
+- 全量回退：manifest 拉取失败、任一文件下载/校验失败、或没有文件差异时，自动改为下载完整 `MiniTools.zip`
+- 下载加速：先直连 GitHub，失败后依次尝试 `GITHUB_PROXY_MIRRORS` 列表中的镜像
+- 安全校验：逐文件 sha256 + 大小校验；全量包额外校验 zip 头 PK 魔数（防止代理返回 HTML 错误页）
+- 安装：生成 `updater.bat`，请求管理员权限 → taskkill → robocopy 复制暂存目录（增量时只含变化文件）→ 重启
+
+## 打包与发布约定（2026-10）
+
+- `build.py` 是唯一构建入口，CI 与本地统一 `python build.py`，不要在命令行另加打包参数
+- 构建产物三件套：`dist/MiniTools.zip`（全量包）+ `dist/MiniTools.manifest.json`（增量清单）+ `dist/assets/*.gz`（逐文件增量资产）
+- 资产命名规则：树内路径的 `/` 替换为 `__` 再追加 `.gz`（GitHub release 资产名不允许含 `/`）；manifest 的 `asset` 字段即实际资产名，客户端只用该字段构造下载 URL
+- 发布流程：`gh release create --draft` → 上传全部资产 → `gh release edit --draft=false`，保证 `releases/latest` 切换时资产已齐备
+- 构建工具版本区间固定 `nuitka>=2.4,<3`、`flake8>=7.0,<8`，两个 workflow 保持一致
+- CI 里写 `$GITHUB_OUTPUT` 的步骤必须带 `shell: pwsh`（PS 5.1 的 `Out-File -Encoding utf8` 会写 BOM，导致 output 解析失败）
 
 ## 禁止事项
 

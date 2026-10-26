@@ -28,7 +28,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         # 与 auto-release.yml 保持一致的版本区间
-        pip install "flake8>=7.0,<8" "pyinstaller>=6.10,<7"
+        pip install "flake8>=7.0,<8" "nuitka>=2.4,<3"
         if (Test-Path requirements.txt) { pip install -r requirements.txt }
     - name: Lint with flake8
       run: |
@@ -41,13 +41,15 @@ jobs:
       run: |
         python -m unittest discover tests -v
 
-    - name: Build with PyInstaller
+    - name: Build with Nuitka
       run: |
-        # 打包参数统一收敛在 MiniTools.spec，PR 上验证 spec 可正常构建
-        pyinstaller MiniTools.spec
+        # 打包参数统一收敛在 build.py，PR 上验证构建可正常产出 zip
+        python build.py
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: MiniTools
-        path: ./dist/MiniTools.exe
+        path: |
+          ./dist/MiniTools.zip
+          ./dist/MiniTools.manifest.json

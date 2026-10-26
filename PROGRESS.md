@@ -2,11 +2,50 @@
 
 ## 当前状态
 
-**最新完成**：发布产物瘦身——exe 47MB → 22MB（本地构建），排除未用 Qt 组件、移除 numpy（2026-10）
+**最新完成**：增量更新——manifest 比对 + 逐文件 .gz 下载，典型更新下载量 22.8MB → ~4.5MB，失败自动回退全量包（2026-10）
 
 ---
 
 ## 变更日志
+
+### 2026-10 — 增量更新（manifest 方案）
+
+**背景**：standalone 产物每次更新都要下载完整 22.8MB zip，而实际变化通常只有 `MiniTools.exe`（压缩后 4.46MB）和少数资源文件。
+
+**改动**：
+- `build.py` — 新增 `make_manifest_and_assets()`：生成 `dist/MiniTools.manifest.json`（每个文件 path/asset/size/sha256）与 `dist/assets/*.gz`（逐文件 gzip 资产，路径中的 `/` 扁平化为 `__`）
+- `app/services/update_service.py` — 新增 `_download_incremental()`：拉 manifest → `_select_files_to_fetch()` 按 size/sha256 比对本地 → 只下载差异文件的 `.gz` 并解压校验；任一环节失败（含 manifest 404、单文件校验失败、无差异文件）自动回退 `_download_full()`
+- `app/services/update_service.py` — 新增模块级纯函数 `_sha256_file()` / `_select_files_to_fetch()`，便于单测；增量只对 `sys.frozen` 生效，源码运行直接走全量
+- `tests/test_update_service.py`（新建）— 8 个单测：哈希一致性、缺失/大小不符/同大小不同内容均需重下、嵌套路径解析、混合清单只返回差异项
+- `.github/workflows/auto-release.yml` — release 改为 draft 流程（建 draft → 上传 manifest/zip/全部 .gz（每批 20 个）→ 发布），避免 `releases/latest` 在资产未齐时被客户端读到
+- `.github/workflows/python-app.yml` — 构建产物增加 manifest 上传
+- `AGENTS.md` — 更新机制补充增量流程，新增「打包与发布约定」章节
+
+**效果**：仅 exe 变化的常规版本更新下载约 **4.5MB**（原 22.81MB，降约 80%）；增量安装用 robocopy 复制暂存目录，实际只写变化文件。
+
+**已知边界**：
+- 增量安装不删除旧版本已移除的文件（残留文件不影响运行，重新完整安装可清理）
+- 从旧 PyInstaller 单 exe 版本升级时，manifest 判定全部文件缺失 → 自动退化为全量下载，符合预期
+
+---
+
+### 2026-10 — 打包工具从 PyInstaller 切换为 Nuitka standalone
+
+**背景**：用户要求资源文件不再释放到临时目录，编译产物改为压缩包形式，更新方式同步调整。
+
+**改动**：
+- `build.py`（新建）— Nuitka standalone 统一构建入口：编译 main.py → 打包 `dist/main.dist/` 为 `dist/MiniTools.zip`；显式 nofollow 未用 Qt 模块
+- `app/config/constants.py` — `get_resource_dir()` 不再使用 `sys._MEIPASS`（PyInstaller 专属），Nuitka standalone 下资源直接放在 exe 旁
+- `app/services/update_service.py` — 下载目标从 exe 改为 zip；校验改为 zip 头 PK 魔数 + 解压后必须包含 MiniTools.exe；updater.bat 改为 robocopy /E 覆盖式复制（保留用户配置/自定义资源，不删除目标中源没有的文件）
+- `app/utils/logger.py` / `app/ui/ascii_art.py` — 注释更新（PyInstaller → Nuitka）
+- `MiniTools.spec` — 删除（不再使用 PyInstaller）
+- `.gitignore` — 移除 `!MiniTools.spec` 白名单，添加 Nuitka 忽略项（`*.build` / `*.dist` / `*.onefile-build`）
+- `.github/workflows/python-app.yml` / `auto-release.yml` — 构建工具从 `pyinstaller` 改为 `nuitka`；构建命令从 `pyinstaller MiniTools.spec` 改为 `python build.py`；release 资产从 `MiniTools.exe` 改为 `MiniTools.zip`
+- `AGENTS.md` — 技术栈、开发命令、更新机制、路径解析说明同步更新
+
+**效果**：standalone 模式下资源文件不再解压到临时目录，启动无需等待解压；发布产物为 zip 压缩包，更新时下载 zip 解压覆盖即可。
+
+---
 
 ### 2026-10 — 发布产物瘦身（减小每次更新的下载体积）
 

@@ -5,9 +5,9 @@
 pad 成等宽等高，避免跳动。
 
 动画文件有两个来源，同名时以用户文件为准：
-- 内置默认动画：随应用分发的只读资源，exe 模式由 --add-data 打包进 exe，
-  运行时从 ``sys._MEIPASS`` 读取；源码运行（开发/测试）时就是项目根的
-  ``ascii_animations/`` 文件夹。
+- 内置默认动画：随应用分发的只读资源，Nuitka standalone 模式由
+  ``--include-data-dir`` 打包到 exe 旁边的 ``ascii_animations/`` 目录；
+  源码运行（开发/测试）时就是项目根的 ``ascii_animations/`` 文件夹。
 - 用户自定义动画：exe/项目根目录下的 ``ascii_animations/`` 文件夹，
   启动时（以及托盘 Reload Animations）自动加载。
 
@@ -64,7 +64,7 @@ def normalize():
 EXTERNAL_SCENES_DIR = os.path.join(BASE_DIR, "ascii_animations")
 
 # 内置默认动画目录：源码运行时与用户目录是同一个文件夹；
-# exe 模式下 --add-data 打包的默认动画被解压到 sys._MEIPASS（只读）
+# Nuitka standalone 模式下默认动画随包放在 exe 旁边的 ascii_animations/ 目录
 BUNDLED_SCENES_DIR = os.path.join(RESOURCE_DIR, "ascii_animations")
 
 # 文本格式元数据允许的键
@@ -214,7 +214,7 @@ def load_external_scenes(directory=None):
 def load_builtin_scenes():
     """加载随应用分发的内置默认动画，返回加载的场景名列表。
 
-    - exe 模式：默认动画打包在 exe 内（sys._MEIPASS），只读；
+    - Nuitka standalone 模式：默认动画打包在 exe 旁边的 ascii_animations/ 目录；
     - 源码运行：默认动画就在用户目录里，与用户动画同目录，无需单独加载；
     - 目录不存在时静默跳过（例如旧版 exe 未打包动画资源）。
     """
