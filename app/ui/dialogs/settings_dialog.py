@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QCheckBox, QDoubleSpinBox, QSpinBox, QMessageBox,
+    QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox, QMessageBox,
     QListWidget, QListWidgetItem, QStackedWidget, QWidget,
     QFrame,
 )
@@ -9,8 +9,38 @@ from PyQt5.QtGui import QFont
 import threading
 from app.config.manager import config_manager
 from app.services import system_service, update_service
-from app.ui.dialogs.common import center_on_screen
+from app.ui.dialogs.common import center_on_screen, is_card_style
 from app.utils.logger import logger
+
+# 卡片风格下的侧边栏样式（Windows 风格用原生外观）
+SIDEBAR_STYLE = """
+QListWidget {
+    background: #f5f5f5;
+    border: none;
+    border-right: 1px solid #e0e0e0;
+    padding: 6px 0;
+    outline: none;
+}
+QListWidget::item {
+    padding: 10px 16px;
+    border: none;
+    color: #444;
+    font-size: 13px;
+}
+QListWidget::item:hover {
+    background: #e8e8e8;
+}
+QListWidget::item:selected {
+    background: #e0e0e0;
+    color: #111;
+    font-weight: bold;
+}
+"""
+
+DIALOG_STYLES = [
+    ("windows", "Windows (native)"),
+    ("card", "Card (colorful)"),
+]
 
 
 class SettingsDialog(QDialog):
@@ -21,7 +51,9 @@ class SettingsDialog(QDialog):
         self._apply_callback = apply_callback
         logger.debug("SettingsDialog opening")
         self.setWindowTitle("Settings")
-        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+        # 卡片风格用 Tool 小窗，Windows 风格用原生对话框标题栏
+        flags = Qt.Tool if is_card_style() else Qt.Dialog
+        self.setWindowFlags(flags | Qt.WindowStaysOnTopHint)
         self.setMinimumSize(520, 340)
         self.resize(520, 360)
         self._build_ui()
@@ -40,6 +72,8 @@ class SettingsDialog(QDialog):
         # ── Sidebar ──
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(150)
+        if is_card_style():
+            self.sidebar.setStyleSheet(SIDEBAR_STYLE)
         self.sidebar.setFocusPolicy(Qt.NoFocus)
 
         self._add_nav_item("General", 0)
@@ -67,6 +101,8 @@ class SettingsDialog(QDialog):
         # ── Bottom Bar ──
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
+        if is_card_style():
+            sep.setStyleSheet("color: #e0e0e0;")
         right_panel.addWidget(sep)
         right_panel.addSpacing(8)
 
@@ -86,6 +122,9 @@ class SettingsDialog(QDialog):
         right_cont = QWidget()
         right_cont.setLayout(right_panel)
         outer.addWidget(right_cont, 1)
+
+        if is_card_style():
+            self.setStyleSheet("QDialog { background: #fafafa; }")
 
     def _add_nav_item(self, text, idx):
         item = QListWidgetItem(text)
@@ -146,6 +185,24 @@ class SettingsDialog(QDialog):
         jr_row.addWidget(self.job_record_spin)
         jr_row.addStretch()
         page.layout().addLayout(jr_row)
+
+        # ── Dialog style ──
+        ds_label = QLabel("Dialog style:")
+        ds_label.setStyleSheet("color: #555; margin-top: 4px;")
+        self.dialog_style_combo = QComboBox()
+        for value, text in DIALOG_STYLES:
+            self.dialog_style_combo.addItem(text, value)
+        self.dialog_style_combo.setFixedWidth(160)
+        ds_row = QHBoxLayout()
+        ds_row.addWidget(ds_label)
+        ds_row.addWidget(self.dialog_style_combo)
+        ds_row.addStretch()
+        page.layout().addLayout(ds_row)
+
+        ds_note = QLabel("Applies to dialogs opened after this setting is saved.")
+        ds_note.setWordWrap(True)
+        ds_note.setStyleSheet("color: #888; margin-top: 2px;")
+        page.layout().addWidget(ds_note)
 
         page.layout().addStretch()
         return page
@@ -275,6 +332,8 @@ class SettingsDialog(QDialog):
         self.auto_update_checkbox.setChecked(config_manager.auto_check_update)
         self.update_delay_spin.setValue(config_manager.check_update_delay)
         self.input_feedback_checkbox.setChecked(config_manager.show_input_feedback)
+        idx = self.dialog_style_combo.findData(config_manager.dialog_style)
+        self.dialog_style_combo.setCurrentIndex(max(idx, 0))
 
     def _on_ok(self):
         logger.debug("Settings OK button clicked")
@@ -302,6 +361,7 @@ class SettingsDialog(QDialog):
             return
 
         config_manager.show_input_feedback = self.input_feedback_checkbox.isChecked()
+        config_manager.dialog_style = self.dialog_style_combo.currentData()
 
         self.accept()
         logger.info("Settings dialog accepted")

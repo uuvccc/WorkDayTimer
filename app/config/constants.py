@@ -93,6 +93,8 @@ DEFAULT_SETTINGS = {
     "job_record_before_end_minutes": DEFAULT_JOB_RECORD_BEFORE_END_MINUTES,
     # 在宠物上方展示「按下的键 / 点击的鼠标按钮」气泡（默认开启，设置里可关）
     "show_input_feedback": True,
+    # 对话框风格："windows"（原生标题栏，默认）/ "card"（彩色卡片）
+    "dialog_style": "windows",
     "reminders": {
         "checkin_reminder": True,
         "job_record_reminder": True,

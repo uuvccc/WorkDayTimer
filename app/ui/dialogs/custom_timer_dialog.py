@@ -1,12 +1,17 @@
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt5.QtGui import QFont, QIntValidator
 from PyQt5.QtCore import Qt, pyqtSignal
-from app.ui.dialogs.common import LightDialog
+from app.ui.dialogs.common import (
+    LightDialog,
+    STYLE_CARD,
+    light_ghost_button_qss,
+    light_quick_button_qss,
+)
 from app.utils.logger import logger
 
 
 class CustomTimerDialog(LightDialog):
-    """自定义计时器设置对话框（Windows 风格非模态）。
+    """自定义计时器设置对话框（非模态，风格随设置中的 dialog_style 配置）。
 
     非模态下不再通过 exec_() 返回值，而是通过 timer_started 信号
     把用户设置的分钟数发给主窗口。
@@ -40,6 +45,13 @@ class CustomTimerDialog(LightDialog):
         self.input_field.setFont(QFont(self.font().family(), 22, QFont.Bold))
         self.input_field.setText("0")
         self.input_field.setValidator(QIntValidator(0, 999999))
+        if self._style == STYLE_CARD:
+            self.input_field.setStyleSheet(
+                "QLineEdit { background: #ffffff; color: #333333;"
+                "  border: 1px solid #dddddd; border-radius: 12px;"
+                "  padding: 10px 14px; font-size: 24px; font-weight: bold; }"
+                "QLineEdit:focus { border: 2px solid #4CAF50; }"
+            )
         self.content_layout.addWidget(self.input_field)
 
         self.content_layout.addSpacing(8)
@@ -51,6 +63,13 @@ class CustomTimerDialog(LightDialog):
 
         self.message_field = QLineEdit()
         self.message_field.setPlaceholderText("例如：该喝水了 / 休息一下 / 给客户回电话")
+        if self._style == STYLE_CARD:
+            self.message_field.setStyleSheet(
+                "QLineEdit { background: #ffffff; color: #333333;"
+                "  border: 1px solid #dddddd; border-radius: 8px;"
+                "  padding: 8px 12px; font-size: 14px; }"
+                "QLineEdit:focus { border: 2px solid #4CAF50; }"
+            )
         self.content_layout.addWidget(self.message_field)
 
         self.content_layout.addSpacing(8)
@@ -69,6 +88,9 @@ class CustomTimerDialog(LightDialog):
             row.setSpacing(8)
             for minutes in values:
                 btn = QPushButton(str(minutes))
+                if self._style == STYLE_CARD:
+                    btn.setCursor(Qt.PointingHandCursor)
+                    btn.setStyleSheet(light_quick_button_qss())
                 btn.clicked.connect(lambda checked, num=minutes: self._add_minutes(num))
                 row.addWidget(btn)
             quick_layout.addLayout(row)
@@ -78,6 +100,9 @@ class CustomTimerDialog(LightDialog):
 
     def _build_buttons(self):
         clear_btn = QPushButton("清零 Clear")
+        if self._style == STYLE_CARD:
+            clear_btn.setCursor(Qt.PointingHandCursor)
+            clear_btn.setStyleSheet(light_ghost_button_qss())
         clear_btn.clicked.connect(lambda: self.input_field.setText("0"))
 
         start_btn = self.make_primary_button("开始 Start", on_click=self._on_ok)

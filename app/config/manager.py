@@ -243,6 +243,22 @@ class ConfigManager:
         self._save()
         logger.info(f"show_input_feedback changed: {old} -> {value}")
 
+    # ── Dialog Style ──────────────────────────────────────
+
+    @property
+    def dialog_style(self) -> str:
+        """对话框风格："windows"（默认）/ "card"。"""
+        return self._settings.get("dialog_style", "windows")
+
+    @dialog_style.setter
+    def dialog_style(self, value: str):
+        if value not in ("windows", "card"):
+            raise ValueError(f"Unknown dialog style: {value}")
+        old = self.dialog_style
+        self._settings["dialog_style"] = value
+        self._save()
+        logger.info(f"dialog_style changed: {old} -> {value}")
+
     # ── Bulk ──────────────────────────────────────────────
 
     def get_all(self) -> dict:

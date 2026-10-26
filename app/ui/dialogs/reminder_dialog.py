@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QPushButton, QWidget, QApplication, QVBoxLayout, QLabel, QHBoxLayout)
+from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QTimer
 from app.utils.logger import logger
-from app.ui.dialogs.common import FancyDialog, LightDialog
+from app.ui.dialogs.common import FancyDialog, LightDialog, is_card_style
 
 
 def _center_on_screen(dialog, width=None, height=None):
@@ -56,7 +57,7 @@ class CustomTimerDoneDialog(FancyDialog):
     """
 
     def __init__(self, message="", parent=None):
-        super().__init__("倒计时结束 · Timer Done", parent)
+        super().__init__("倒计时结束 · Timer Done", "violet", parent)
         self.add_hero(
             "⏱️",
             "倒计时结束啦！",
@@ -137,37 +138,78 @@ class ReminderDialog:
         """
         logger.debug("Showing update available dialog (non-modal, QWidget)")
 
+        card = is_card_style()
+
         dialog = QWidget()
         dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+        # 卡片风格用无边框感的 Tool 小窗，Windows 风格用原生对话框标题栏
+        flags = Qt.Tool if card else Qt.Dialog
+        dialog.setWindowFlags(flags | Qt.WindowStaysOnTopHint)
         dialog.setWindowTitle("Update Available")
         dialog.resize(420, 220)
 
         # 居中到主屏幕
         _center_on_screen(dialog, 420, 220)
 
+        if card:
+            font = QFont()
+            font.setPointSize(12)
+            dialog.setFont(font)
+
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(16, 16, 16, 12)
+        if card:
+            layout.setContentsMargins(24, 20, 24, 16)
+        else:
+            layout.setContentsMargins(16, 16, 16, 12)
         layout.setSpacing(12)
+
+        if card:
+            title = QLabel("Update Available")
+            title.setFont(QFont(dialog.font().family(), 13, QFont.Bold))
+            title.setAlignment(Qt.AlignCenter)
+            layout.addWidget(title)
 
         msg = QLabel("A new version of MiniTools is available!\n"
                      "Do you want to update now?")
         msg.setWordWrap(True)
+        if card:
+            msg.setAlignment(Qt.AlignCenter)
+            msg.setStyleSheet("color: #444;")
         layout.addWidget(msg)
 
         layout.addStretch()
 
         # ── 按钮行 ──
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
+        btn_row.setSpacing(10 if card else 8)
 
         update_btn = QPushButton(f"Update Now ({countdown_seconds}s)")
-        update_btn.setDefault(True)
         update_btn.setEnabled(False)
-
         defer_btn = QPushButton("Remind Later")
-
         disable_btn = QPushButton("Don't Remind")
+
+        if card:
+            update_btn.setFixedHeight(34)
+            update_btn.setStyleSheet(
+                "QPushButton { background: #4CAF50; color: white; border: none; "
+                "border-radius: 4px; padding: 6px 16px; }"
+                "QPushButton:disabled { background: #ccc; color: #888; }"
+                "QPushButton:hover:!disabled { background: #45a049; }"
+            )
+            defer_btn.setFixedHeight(34)
+            defer_btn.setStyleSheet(
+                "QPushButton { background: #f5f5f5; color: #333; border: 1px solid #ddd; "
+                "border-radius: 4px; padding: 6px 16px; }"
+                "QPushButton:hover { background: #e8e8e8; }"
+            )
+            disable_btn.setFixedHeight(34)
+            disable_btn.setStyleSheet(
+                "QPushButton { background: #f5f5f5; color: #999; border: 1px solid #ddd; "
+                "border-radius: 4px; padding: 6px 16px; }"
+                "QPushButton:hover { background: #e8e8e8; }"
+            )
+        else:
+            update_btn.setDefault(True)
 
         btn_row.addWidget(disable_btn)
         btn_row.addStretch()
