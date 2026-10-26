@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
-    QDialog, QApplication, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCheckBox, QDoubleSpinBox, QSpinBox, QMessageBox,
     QListWidget, QListWidgetItem, QStackedWidget, QWidget,
-    QFrame, QSizePolicy, QSpacerItem,
+    QFrame,
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
@@ -11,30 +11,6 @@ from app.config.manager import config_manager
 from app.services import system_service, update_service
 from app.ui.dialogs.common import center_on_screen
 from app.utils.logger import logger
-
-SIDEBAR_STYLE = """
-QListWidget {
-    background: #f5f5f5;
-    border: none;
-    border-right: 1px solid #e0e0e0;
-    padding: 6px 0;
-    outline: none;
-}
-QListWidget::item {
-    padding: 10px 16px;
-    border: none;
-    color: #444;
-    font-size: 13px;
-}
-QListWidget::item:hover {
-    background: #e8e8e8;
-}
-QListWidget::item:selected {
-    background: #e0e0e0;
-    color: #111;
-    font-weight: bold;
-}
-"""
 
 
 class SettingsDialog(QDialog):
@@ -45,7 +21,7 @@ class SettingsDialog(QDialog):
         self._apply_callback = apply_callback
         logger.debug("SettingsDialog opening")
         self.setWindowTitle("Settings")
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
         self.setMinimumSize(520, 340)
         self.resize(520, 360)
         self._build_ui()
@@ -64,7 +40,6 @@ class SettingsDialog(QDialog):
         # ── Sidebar ──
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(150)
-        self.sidebar.setStyleSheet(SIDEBAR_STYLE)
         self.sidebar.setFocusPolicy(Qt.NoFocus)
 
         self._add_nav_item("General", 0)
@@ -92,7 +67,6 @@ class SettingsDialog(QDialog):
         # ── Bottom Bar ──
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: #e0e0e0;")
         right_panel.addWidget(sep)
         right_panel.addSpacing(8)
 
@@ -100,6 +74,7 @@ class SettingsDialog(QDialog):
         btn_row.addStretch()
         ok_btn = QPushButton("OK")
         ok_btn.setFixedWidth(80)
+        ok_btn.setDefault(True)
         ok_btn.clicked.connect(self._on_ok)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setFixedWidth(80)
@@ -111,8 +86,6 @@ class SettingsDialog(QDialog):
         right_cont = QWidget()
         right_cont.setLayout(right_panel)
         outer.addWidget(right_cont, 1)
-
-        self.setStyleSheet("QDialog { background: #fafafa; }")
 
     def _add_nav_item(self, text, idx):
         item = QListWidgetItem(text)

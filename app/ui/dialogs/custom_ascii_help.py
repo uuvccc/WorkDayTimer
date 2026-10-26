@@ -1,4 +1,4 @@
-"""自定义 ASCII 动画使用说明对话框（浅色非模态）。
+"""自定义 ASCII 动画使用说明对话框（Windows 风格非模态）。
 
 不改动任何功能，只把「如何添加自定义动画」写清楚：
 - 文件放哪（ascii_animations/ 文件夹，可一键打开）
@@ -9,10 +9,10 @@
 import os
 
 from PyQt5.QtWidgets import (
-    QLabel, QPlainTextEdit, QPushButton, QMessageBox,
+    QLabel, QPlainTextEdit, QMessageBox,
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QFontDatabase
+from PyQt5.QtGui import QFontDatabase
 
 from app.ui import ascii_art
 from app.ui.dialogs.common import LightDialog
@@ -82,11 +82,6 @@ class CustomAsciiHelpDialog(LightDialog):
 
         steps = QLabel(_STEPS)
         steps.setWordWrap(True)
-        steps.setStyleSheet(
-            "color: #444444; font-size: 13px; line-height: 1.6;"
-            "background: #f7f8fa; border: 1px solid #e6e8eb;"
-            "border-radius: 8px; padding: 10px 12px;"
-        )
         self.content_layout.addWidget(steps)
 
         # 文件夹路径 + 打开按钮
@@ -109,11 +104,6 @@ class CustomAsciiHelpDialog(LightDialog):
         sample.setPlainText(_EXAMPLE_TEXT)
         sample.setFont(mono)
         sample.setFixedHeight(190)
-        sample.setStyleSheet(
-            "QPlainTextEdit { background: #f7f8fa; color: #333333;"
-            "  border: 1px solid #e6e8eb; border-radius: 8px;"
-            "  padding: 8px; }"
-        )
         self.content_layout.addWidget(sample)
 
         tips = QLabel(_TIPS)

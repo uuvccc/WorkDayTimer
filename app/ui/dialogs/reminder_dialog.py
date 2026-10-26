@@ -1,6 +1,4 @@
-from PyQt5.QtWidgets import (QPushButton, QWidget, QApplication,
-                              QVBoxLayout, QLabel, QHBoxLayout)
-from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import (QPushButton, QWidget, QApplication, QVBoxLayout, QLabel, QHBoxLayout)
 from PyQt5.QtCore import Qt, QTimer
 from app.utils.logger import logger
 from app.ui.dialogs.common import FancyDialog, LightDialog
@@ -24,7 +22,7 @@ def _center_on_screen(dialog, width=None, height=None):
 
 
 class CheckinDialog(LightDialog):
-    """早上打卡提醒（非模态浅色）。"""
+    """早上打卡提醒（非模态）。"""
 
     def __init__(self, parent=None):
         super().__init__("打卡提醒 · Check-in", parent)
@@ -37,27 +35,28 @@ class CheckinDialog(LightDialog):
 
 
 class JobRecordDialog(LightDialog):
-    """下班前工作记录提醒（非模态浅色）。"""
+    """下班前工作记录提醒（非模态）。"""
 
     def __init__(self, parent=None):
         super().__init__("工作记录提醒 · Work Log", parent)
         self.add_hero(
             "📝",
             "快到下班点了，写一下今天的工作记录吧",
-            "Almost off work — remember to log what you've done today.",
+            "Almost off work — remember to log what you've done today.\n"
+            "如有加班或请假，也要记得一并记录哦。",
         )
         self.add_primary_button("知道了", on_click=self.accept)
 
 
 class CustomTimerDoneDialog(FancyDialog):
-    """自定义倒计时结束提醒（保持模态，风格不变）。
+    """自定义倒计时结束提醒（保持模态，Windows 风格）。
 
     message 为用户在设置倒计时时输入的提醒内容；
     为空时显示默认文案。
     """
 
     def __init__(self, message="", parent=None):
-        super().__init__("倒计时结束 · Timer Done", "violet", parent)
+        super().__init__("倒计时结束 · Timer Done", parent)
         self.add_hero(
             "⏱️",
             "倒计时结束啦！",
@@ -68,7 +67,7 @@ class CustomTimerDoneDialog(FancyDialog):
 
 
 class CheckoutDialog(LightDialog):
-    """下班打卡提醒（非模态浅色，替代原 QMessageBox 版）。
+    """下班打卡提醒（非模态，替代原 QMessageBox 版）。
 
     - 弹性模式：打卡/关空调/写日志 提示
     - 固定模式：显示 "Need to shutdown"；提供 Shutdown 按钮（仅当传入回调时）
@@ -86,15 +85,15 @@ class CheckoutDialog(LightDialog):
             )
         else:
             self.add_hero("🚨", "到点下班啦！", "Need to shutdown")
-            if shutdown_callback:
-                self.button_layout.addStretch()
-                self.button_layout.addWidget(
-                    self.make_button(
-                        "Shutdown",
-                        on_click=lambda: (shutdown_callback(), self.accept()),
-                    )
-                )
+        # Windows 约定：按钮靠右，安全操作（Ignore）在最右
         self.button_layout.addStretch()
+        if not is_flexible and shutdown_callback:
+            self.button_layout.addWidget(
+                self.make_button(
+                    "Shutdown",
+                    on_click=lambda: (shutdown_callback(), self.accept()),
+                )
+            )
         self.button_layout.addWidget(
             self.make_button("Ignore", on_click=self.accept)
         )
@@ -140,64 +139,35 @@ class ReminderDialog:
 
         dialog = QWidget()
         dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.setWindowFlags(Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
         dialog.setWindowTitle("Update Available")
         dialog.resize(420, 220)
 
         # 居中到主屏幕
         _center_on_screen(dialog, 420, 220)
 
-        font = QFont()
-        font.setPointSize(12)
-        dialog.setFont(font)
-
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(24, 20, 24, 16)
+        layout.setContentsMargins(16, 16, 16, 12)
         layout.setSpacing(12)
-
-        title = QLabel("Update Available")
-        title.setFont(QFont(dialog.font().family(), 13, QFont.Bold))
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
 
         msg = QLabel("A new version of MiniTools is available!\n"
                      "Do you want to update now?")
         msg.setWordWrap(True)
-        msg.setAlignment(Qt.AlignCenter)
-        msg.setStyleSheet("color: #444;")
         layout.addWidget(msg)
 
         layout.addStretch()
 
         # ── 按钮行 ──
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
+        btn_row.setSpacing(8)
 
         update_btn = QPushButton(f"Update Now ({countdown_seconds}s)")
-        update_btn.setFixedHeight(34)
+        update_btn.setDefault(True)
         update_btn.setEnabled(False)
-        update_btn.setStyleSheet(
-            "QPushButton { background: #4CAF50; color: white; border: none; "
-            "border-radius: 4px; padding: 6px 16px; }"
-            "QPushButton:disabled { background: #ccc; color: #888; }"
-            "QPushButton:hover:!disabled { background: #45a049; }"
-        )
 
         defer_btn = QPushButton("Remind Later")
-        defer_btn.setFixedHeight(34)
-        defer_btn.setStyleSheet(
-            "QPushButton { background: #f5f5f5; color: #333; border: 1px solid #ddd; "
-            "border-radius: 4px; padding: 6px 16px; }"
-            "QPushButton:hover { background: #e8e8e8; }"
-        )
 
         disable_btn = QPushButton("Don't Remind")
-        disable_btn.setFixedHeight(34)
-        disable_btn.setStyleSheet(
-            "QPushButton { background: #f5f5f5; color: #999; border: 1px solid #ddd; "
-            "border-radius: 4px; padding: 6px 16px; }"
-            "QPushButton:hover { background: #e8e8e8; }"
-        )
 
         btn_row.addWidget(disable_btn)
         btn_row.addStretch()
