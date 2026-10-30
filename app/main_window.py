@@ -122,6 +122,12 @@ class MainWindow(QWidget):
         self.time_label.setAlignment(Qt.AlignCenter)
         self.time_label.setStyleSheet("background: transparent; color: #000000; font-size: 10px; font-weight: bold;")
 
+        # 动画文件名标签：常驻底部小字，仅 ASCII 模式显示当前播放的动画文件名
+        self.filename_label = QLabel('', self)
+        self.filename_label.setAlignment(Qt.AlignCenter)
+        self.filename_label.setStyleSheet("background: transparent; color: #666666; font-size: 8px;")
+        self.filename_label.hide()
+
         # 按键/鼠标反馈气泡：独立浮层，不参与布局，只在有输入事件时临时显示，
         # 这样出现/消失都不会挤压或移动宠物动画。
         self.feedback_label = QLabel(self)
@@ -138,7 +144,7 @@ class MainWindow(QWidget):
         # ASCII/图片标签铺满或占用窗口时，按下拖动事件会被 QLabel 吞掉，
         # 用事件过滤器统一接管拖动，保证两种显示模式都能拖动位置。
         self._drag_filter = _DragFilter(self)
-        for _label in (self.countdown_label, self.ascii_label, self.time_label):
+        for _label in (self.countdown_label, self.ascii_label, self.time_label, self.filename_label):
             _label.installEventFilter(self._drag_filter)
 
         layout = QVBoxLayout(self)
@@ -149,6 +155,7 @@ class MainWindow(QWidget):
         # 水平居中固定：adjustSize() 让 label 宽度随文本变宽变窄，
         # 若不做水平居中，文本中心点会左右漂移（倒计时跳来跳去）。
         layout.addWidget(self.time_label, 0, Qt.AlignHCenter)
+        layout.addWidget(self.filename_label, 0, Qt.AlignHCenter)
 
         self.setParent(None)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
@@ -437,6 +444,7 @@ class MainWindow(QWidget):
         self._scene_name = name
         self._frame_index = 0
         scene = ascii_art.SCENES[name]
+        self.filename_label.setText(scene.get("_filename", name))
         if scene.get("rainbow"):
             self.ascii_label.setTextFormat(Qt.RichText)
             self.ascii_label.setStyleSheet("background: transparent;")
@@ -462,11 +470,13 @@ class MainWindow(QWidget):
         """按当前 _display_mode 显示：随机图片 或 ASCII 动画，二选一。"""
         if self._display_mode == 'ascii':
             self.ascii_label.show()
+            self.filename_label.show()
             self.countdown_label.hide()
             self._ensure_ascii_running()
         else:
             self.countdown_label.show()
             self.ascii_label.hide()
+            self.filename_label.hide()
             self._ascii_timer.stop()
             self._pick_random_image()
 

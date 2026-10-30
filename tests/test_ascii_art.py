@@ -182,7 +182,9 @@ class TestExternalScenes(unittest.TestCase):
                 scene = ascii_art.SCENES["grid"]
                 self.assertEqual([len(f) for f in scene["frames"]], [2, 2])
                 self.assertEqual(scene["frames"][1], ["ccc", "   "])
-                self.assertEqual(ascii_art.render_frame(scene, 0), "a  \nbb ")
+                # 渲染时空格替换为 NBSP（防 Qt 居中忽略行尾空格导致逐行错位）
+                self.assertEqual(ascii_art.render_frame(scene, 0),
+                                 "a  \nbb ".replace(" ", ascii_art.NBSP))
             finally:
                 self._cleanup("grid")
 
@@ -197,7 +199,8 @@ class TestRenderFrame(unittest.TestCase):
         self.assertNotIn('<br>', out)
         self.assertIn('\n', out)
         # 2x 网格后猫脸变成 `(  o   o  )`（原来是 `( o.o )`）
-        self.assertIn('  o   o  ', out)
+        # 注意：输出里的空格已替换为 NBSP
+        self.assertIn('  o   o  '.replace(' ', ascii_art.NBSP), out)
 
     def test_rainbow_scene_uses_spans(self):
         scene = ascii_art.SCENES['clock']

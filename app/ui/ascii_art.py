@@ -198,6 +198,8 @@ def load_external_scenes(directory=None):
         except Exception as e:
             logger.error("External ascii scene load failed: %s: %s", filename, e)
             continue
+        # 记录来源文件名（含扩展名），播放时由主窗口展示在底部小字标签
+        scene["_filename"] = filename
         if name in SCENES:
             logger.warning("External ascii scene '%s' overrides builtin", name)
         SCENES[name] = scene
@@ -243,19 +245,26 @@ def _row_colors(color, n):
 
 # ── 渲染 ──────────────────────────────────────────────────
 
+# 不换行空格：Qt 居中绘制纯文本会忽略行尾空格、富文本会折叠连续空格，
+# 直接输出空格会让每行按可见内容各自居中，等宽网格逐行错位；
+# NBSP 不参与空白处理且字宽与空格一致，网格才能对齐。
+NBSP = "\u00a0"
+
+
 def render_frame(scene, index):
     """返回场景第 index 帧的显示文本。
 
     rainbow 场景返回富文本（每行一个 <span> 颜色 + <br>），
     否则返回多行纯文本（颜色由 QLabel 的 QSS 控制）。
+    帧内空格已全部替换为 NBSP（见上），保证逐行对齐。
     """
     frame = scene["frames"][index % len(scene["frames"])]
     if scene.get("rainbow"):
         colors = _row_colors(scene["color"], len(frame))
-        lines = [f'<span style="color:{c}">{html.escape(row)}</span>'
+        lines = [f'<span style="color:{c}">{html.escape(row).replace(" ", NBSP)}</span>'
                  for row, c in zip(frame, colors)]
         return "<br>".join(lines)
-    return "\n".join(frame)
+    return "\n".join(frame).replace(" ", NBSP)
 
 
 # ── 按键 / 鼠标反馈气泡 ───────────────────────────────────

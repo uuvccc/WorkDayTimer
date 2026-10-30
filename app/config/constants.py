@@ -55,12 +55,10 @@ START_TIME_FILE = os.path.join(BASE_DIR, "start_time.txt")
 LOG_FILE = os.path.join(BASE_DIR, "app.log")
 ICON_FILE = resolve_resource("images/icon.png")
 
-DEFAULT_TIMER_IMAGE = resolve_resource("images/timer1.png")
 IMAGE_DIRECTORY = resolve_resource_dir("images/timers")
 
 # 源码运行时保证图片目录存在；打包运行时图片由 --add-data 提供，无需创建
 if not getattr(sys, 'frozen', False):
-    os.makedirs(os.path.dirname(DEFAULT_TIMER_IMAGE), exist_ok=True)
     os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
 WINDOW_SIZE_WIDTH = 200
