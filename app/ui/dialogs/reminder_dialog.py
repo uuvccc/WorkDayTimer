@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QPushButton, QWidget, QApplication, QVBoxLayout, QLabel, QHBoxLayout)
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from app.utils.logger import logger
 from app.ui.dialogs.common import FancyDialog, LightDialog, is_card_style
 
@@ -129,9 +129,9 @@ class ReminderDialog:
         dialog.exec_()
 
     @staticmethod
-    def show_update_available(parent=None, countdown_seconds=10,
+    def show_update_available(parent=None,
                               on_update=None, on_defer=None, on_disable=None):
-        """非模态更新提示弹窗，带倒计时。
+        """非模态更新提示弹窗。
         - on_update: 点击“立即更新”
         - on_defer:  点击“下次提醒”或关闭弹窗
         - on_disable: 点击“不再提示”
@@ -183,8 +183,7 @@ class ReminderDialog:
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10 if card else 8)
 
-        update_btn = QPushButton(f"Update Now ({countdown_seconds}s)")
-        update_btn.setEnabled(False)
+        update_btn = QPushButton("Update Now")
         defer_btn = QPushButton("Remind Later")
         disable_btn = QPushButton("Don't Remind")
 
@@ -217,22 +216,6 @@ class ReminderDialog:
         btn_row.addWidget(update_btn)
         layout.addLayout(btn_row)
 
-        # ── 倒计时（从 0 开始数到 countdown_seconds）──
-        elapsed = [0]
-
-        def tick():
-            elapsed[0] += 1
-            if elapsed[0] < countdown_seconds:
-                update_btn.setText(f"Update Now ({elapsed[0]}s)")
-            else:
-                update_btn.setText("Update Now")
-                update_btn.setEnabled(True)
-                timer.stop()
-
-        timer = QTimer(dialog)
-        timer.timeout.connect(tick)
-        timer.start(1000)
-
         # ── 回调 ──
         handled = [False]
 
@@ -240,7 +223,6 @@ class ReminderDialog:
             if handled[0]:
                 return
             handled[0] = True
-            timer.stop()
             dialog.close()
             logger.info("User chose: update now")
             if on_update:
@@ -250,7 +232,6 @@ class ReminderDialog:
             if handled[0]:
                 return
             handled[0] = True
-            timer.stop()
             dialog.close()
             logger.info("User chose: remind later")
             if on_defer:
@@ -260,7 +241,6 @@ class ReminderDialog:
             if handled[0]:
                 return
             handled[0] = True
-            timer.stop()
             dialog.close()
             logger.info("User chose: don't remind")
             if on_disable:
@@ -273,7 +253,6 @@ class ReminderDialog:
         def on_close_event(event):
             if not handled[0]:
                 handled[0] = True
-                timer.stop()
                 logger.info("Update dialog closed without action, treating as defer")
                 if on_defer:
                     on_defer()

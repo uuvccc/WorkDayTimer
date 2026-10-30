@@ -4,11 +4,20 @@
 它是增量更新正确性的关键（判错会导致该更新的没更新，或重复下载）。
 """
 import hashlib
+import importlib
 import os
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from app.services.update_service import _select_files_to_fetch, _sha256_file
+
+# 注意：app.services 包的 __init__ 里导出了同名单例，直接
+# `from app.services import update_service` 拿到的是单例而不是模块，
+# 需要拿到模块本身才能 patch 模块级的 _is_packaged。
+update_service_module = importlib.import_module("app.services.update_service")
+update_service = update_service_module.update_service
 
 
 class TestSha256File(unittest.TestCase):
@@ -85,6 +94,54 @@ class TestSelectFilesToFetch(unittest.TestCase):
             ]
             result = _select_files_to_fetch(entries, tmp)
             self.assertEqual([e["path"] for e in result], ["b.dll", "c.dll"])
+
+
+class TestLocalExePath(unittest.TestCase):
+    """Nuitka 打包后 sys.executable 是假的 python.exe，更新目标必须取 argv[0]。"""
+
+    def test_prefers_real_exe_from_argv0(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = os.path.join(tmp, "MiniTools.exe")
+            open(fake_exe, "wb").close()
+            with patch.object(sys, "argv", [fake_exe]):
+                self.assertEqual(update_service.get_local_exe_path(), os.path.abspath(fake_exe))
+
+    def test_falls_back_to_sys_executable_without_exe_argv0(self):
+        with patch.object(sys, "argv", ["main.py"]):
+            self.assertEqual(update_service.get_local_exe_path(), sys.executable)
+
+
+class TestPrepareUpdaterScript(unittest.TestCase):
+    def _make_exe(self, tmp):
+        exe = os.path.join(tmp, "MiniTools.exe")
+        open(exe, "wb").close()
+        return exe
+
+    def test_skipped_when_not_packaged(self):
+        """源码运行时不生成更新脚本（否则会把 Python 安装目录当更新目标）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = self._make_exe(tmp)
+            with patch.object(update_service_module, "_is_packaged", return_value=False):
+                self.assertIsNone(update_service.prepare_updater_script(tmp, exe))
+
+    def test_rejects_non_exe_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(update_service_module, "_is_packaged", return_value=True):
+                self.assertIsNone(update_service.prepare_updater_script(tmp, "python.exe"))
+
+    def test_script_restarts_real_exe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = self._make_exe(tmp)
+            staging = os.path.join(tmp, "staging")
+            os.makedirs(staging)
+            with patch.object(update_service_module, "_is_packaged", return_value=True):
+                script = update_service.prepare_updater_script(staging, exe)
+            self.assertTrue(script)
+            with open(script, encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn('taskkill /f /im "MiniTools.exe"', content)
+            self.assertIn(f'start "" /D "{tmp}" "MiniTools.exe"', content)
+            self.assertNotIn("python.exe", content.lower())
 
 
 if __name__ == "__main__":

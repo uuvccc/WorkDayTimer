@@ -347,7 +347,6 @@ class MainWindow(QWidget):
     def _show_update_available_dialog(self):
         ReminderDialog.show_update_available(
             parent=self,
-            countdown_seconds=config_manager.check_update_delay,
             on_update=self._on_update_now,
             on_defer=self._on_defer_update,
             on_disable=self._on_disable_update,

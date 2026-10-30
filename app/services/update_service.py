@@ -59,6 +59,15 @@ def _try_request(urls, timeout=30, stream=False, method="get"):
     raise last_error if last_error else Exception("All URLs failed")
 
 
+def _is_packaged():
+    """当前是否运行在打包后的 exe 中。
+
+    Nuitka standalone 不会设置 sys.frozen，而是在每个编译模块里注入
+    __compiled__；PyInstaller 则设置 sys.frozen。两者都算打包模式。
+    """
+    return "__compiled__" in globals() or bool(getattr(sys, "frozen", False))
+
+
 def _sha256_file(path):
     """计算文件 sha256（分块读取，避免大文件占内存）。"""
     h = hashlib.sha256()
@@ -162,7 +171,7 @@ class UpdateService:
         callback = progress_callback or self._download_progress_callback
 
         # 源码运行时目录结构与应用目录不同，无法用 manifest 比对，直接走全量
-        if getattr(sys, 'frozen', False):
+        if _is_packaged():
             success, staging_dir, error = self._download_incremental(callback)
             if success:
                 return True, staging_dir, None
@@ -179,7 +188,7 @@ class UpdateService:
                 return False, None, "cannot fetch update manifest"
 
             manifest_files = manifest.get("files") or []
-            app_dir = os.path.dirname(sys.executable)
+            app_dir = os.path.dirname(self.get_local_exe_path())
             to_fetch = _select_files_to_fetch(manifest_files, app_dir)
             total = len(to_fetch)
             logger.info(
@@ -350,14 +359,25 @@ class UpdateService:
           logs/ 等不会被删除）
         - 旧版本中已删除的文件：会残留（小项目可接受，避免误删用户数据）
         """
+        # 源码模式没有可替换的 exe，且 sys.executable 是 python.exe，
+        # 绝不能把它当作更新目标（否则会覆盖 Python 安装目录并弹出解释器窗口）。
+        if not _is_packaged():
+            logger.error("Auto-update is only supported in packaged exe, skipping")
+            return None
+
+        exe_name = os.path.basename(local_exe_path)
+        if not exe_name.lower().endswith(".exe") or not os.path.isfile(local_exe_path):
+            logger.error(f"Unexpected local executable path: {local_exe_path}")
+            return None
+
         try:
             app_dir = os.path.dirname(local_exe_path)
             updater_script = os.path.join(app_dir, "updater.bat")
-            with open(updater_script, "w") as f:
+            with open(updater_script, "w", encoding="utf-8") as f:
                 f.write(f"""@echo off
 NET SESSION >NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 (
-    echo 请求管理员权限...
+    echo Requesting administrator privileges...
     powershell -Command "Start-Process '%~f0' -Verb RunAs"
     exit /b
 )
@@ -366,20 +386,27 @@ cd /d "{app_dir}"
 
 timeout /t 3 /nobreak >nul
 
-taskkill /f /im {self.EXE_NAME} 2>nul
+taskkill /f /im "{exe_name}" 2>nul
 timeout /t 1 /nobreak >nul
 
-:: robocopy /E：复制所有子目录与文件，覆盖同名文件，
-:: 不删除目标中源没有的文件（保留用户配置与自定义资源）
+:: robocopy /E: copy all files, overwrite same-named ones, keep destination-only files
 robocopy "{temp_dir}" "{app_dir}" /E /IS /IT /R:2 /W:1 >nul
+
+:: robocopy exit code >= 8 means copy failed; keep window open so the user notices
+IF %ERRORLEVEL% GEQ 8 (
+    echo [MiniTools] Update failed: unable to replace application files.
+    echo Please download the latest MiniTools.zip manually and reinstall.
+    pause
+    exit /b 1
+)
 
 set "PATH=%PATH%;C:\\Windows\\System32;C:\\Windows\\SysWOW64"
 set "TEMP={os.environ.get('TEMP', '')}"
 set "TMP={os.environ.get('TMP', '')}"
 
-start "" /D "{app_dir}" "{os.path.basename(local_exe_path)}"
+start "" /D "{app_dir}" "{exe_name}"
 
-:: 清理临时解压目录与自身
+:: Clean up temporary extract directory and this script
 rmdir /s /q "{temp_dir}" 2>nul
 
 del "%~f0"
@@ -404,7 +431,15 @@ del "%~f0"
             return False, error
 
     def get_local_exe_path(self):
-        """获取当前运行的 exe 路径（更新替换目标）。"""
+        """获取当前运行的 exe 路径（更新替换目标）。
+
+        Nuitka standalone 打包后 sys.executable 指向 exe 目录下一个并不存在的
+        python.exe，只有 sys.argv[0] 是真实 exe；源码运行时 argv[0] 是 .py 文件，
+        此时退回 sys.executable。
+        """
+        argv0 = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
+        if argv0.lower().endswith(".exe") and os.path.isfile(argv0):
+            return argv0
         return sys.executable
 
 update_service = UpdateService()

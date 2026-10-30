@@ -129,14 +129,14 @@ class TestOtherDialogs(unittest.TestCase):
 
     def test_show_update_available_returns_widget(self):
         from PyQt5.QtWidgets import QWidget
-        result = ReminderDialog.show_update_available(countdown_seconds=0)
+        result = ReminderDialog.show_update_available()
         self.assertIsInstance(result, QWidget)
         result.close()
 
     def test_show_update_available_defer_callback_on_close(self):
         deferred = [False]
         dialog = ReminderDialog.show_update_available(
-            countdown_seconds=0, on_defer=lambda: deferred.__setitem__(0, True))
+            on_defer=lambda: deferred.__setitem__(0, True))
         dialog.close()
         self.assertTrue(deferred[0])
 
