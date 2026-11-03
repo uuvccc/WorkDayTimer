@@ -72,10 +72,12 @@ def run_nuitka():
         # 应用图标 + 产品元数据（让任务管理器/资源管理器显示名称、描述等）
         "--windows-icon-from-ico=images/icon.ico",
         "--windows-product-name=MiniTools",
-        "--windows-file-description=MiniTools — Windows desktop pet work-day timer",
+        "--windows-file-description=MiniTools - Windows desktop pet work-day timer",
         "--windows-company-name=MiniTools",
         "--windows-product-version=1.0.0",
-        "--windows-file-version=1,0,0,0",
+        # Nuitka 要求点号分隔的版本号元组（最多 4 段），逗号分隔会报
+        # "file version must be a tuple of up to 4 integer values"
+        "--windows-file-version=1.0.0.0",
         # 资源目录：源目录=目标目录（exe 旁边）
         "--include-data-dir=images=images",
         "--include-data-dir=ascii_animations=ascii_animations",
