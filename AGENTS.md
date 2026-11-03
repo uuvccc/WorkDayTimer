@@ -39,12 +39,26 @@ app/utils/
 ## 路径解析（重要）
 
 **仅发布 exe 版本**（Nuitka standalone），脚本模式已废弃；但开发/测试仍从源码运行，
-路径定位逻辑因此保留了 frozen 判断，分布在两处：
-- `app/config/constants.py` → `get_base_dir()`
-- `app/utils/logger.py` → `get_project_root()`
+路径定位逻辑因此保留了"打包 vs 源码"分支判断，分布在三处：
 
-两者逻辑相同：`getattr(sys, 'frozen', False)` 区分「exe 运行（exe 所在目录）/ 源码运行（项目根）」。
-修改路径逻辑时必须同步两处。不要删除 frozen 判断，否则测试运行时配置/日志会写进 Python 安装目录。
+- `app/config/constants.py`
+  - `is_packaged()` — 统一打包判断（`__compiled__ in globals()` 或 `sys.frozen`）
+  - `get_base_dir()` / `get_resource_dir()` / `get_exe_path()` — 所有路径计算都走这里
+- `app/utils/logger.py`
+  - 自维护一份等价的 `_is_packaged()` 副本（utils 包禁止依赖 config）
+  - `get_project_root()` 基于此判断 logs 目录落点
+- `app/application.py`
+  - `os.chdir()` 到 `sys.argv[0]` 所在目录（自启时 CWD 可能是 System32）
+
+**Nuitka 关键坑**：Nuitka standalone 不设置 `sys.frozen`（那是 PyInstaller 的做法），
+它在编译模块的 globals 里注入 `__compiled__`；同时打包后 `sys.executable` 指向
+exe 目录下一个**并不存在的 `python.exe`**，真实 exe 只有 `sys.argv[0]`。
+所以：
+- 所有路径/打包判断都要同时看 `__compiled__` 和 `sys.frozen`；
+- 拿真实 exe 路径必须用 `sys.argv[0]`，`sys.executable` 在打包模式下不可靠。
+
+修改路径逻辑时必须同步这三处。不要把判断简化成只看 `sys.frozen`，否则 Nuitka
+打包后会走错分支。
 
 ## 开发命令
 
@@ -99,7 +113,9 @@ python build.py
 
 - **禁止** 假设路径 — 所有文件路径必须通过 `constants.py` 的常量获取，不能硬编码相对路径
 - **禁止** 在服务单例模块中执行有副作用的顶层代码（除创建单例实例外）
-- **禁止** 修改 `get_base_dir()` / `get_project_root()` 逻辑时只改一处
+- **禁止** 修改 `constants.py` / `logger.py` / `application.py` 里的路径判断逻辑时只改一处；三处共享同一份 `is_packaged` 语义，logger.py 自维护副本需同步
+- **禁止** 简化打包判断为只看 `sys.frozen`；Nuitka standalone 不设置它，必须同时检查 `__compiled__`
+- **禁止** 在打包模式下把 `sys.executable` 当真实 exe 路径；Nuitka 会让它指向一个不存在的 python.exe，真实路径在 `sys.argv[0]`
 - **禁止** 使用 `print()` 输出日志 — 必须使用 `from app.utils.logger import logger`
 
 ## 注意事项

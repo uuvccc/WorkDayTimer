@@ -2,9 +2,25 @@ import logging
 import os
 import sys
 
+
+def _is_packaged():
+    """独立副本：Nuitka (__compiled__) 或 PyInstaller (sys.frozen) 打包均可识别。
+
+    utils 包禁止依赖 config，所以这里自维护一份；与 app/config/constants.py
+    的 `_is_packaged()` 保持等价即可。"""
+    return "__compiled__" in globals() or bool(getattr(sys, "frozen", False))
+
+
 def get_project_root():
-    """获取项目根目录：Nuitka standalone 运行时为 exe 所在目录，源码运行（开发/测试）时为 __file__ 上两级"""
-    if getattr(sys, 'frozen', False):
+    """项目根目录：打包后为 exe 所在目录，源码运行时为 __file__ 上两级。
+
+    Nuitka standalone 不设置 sys.frozen 且 sys.executable 指向假 python.exe，
+    必须用 sys.argv[0] 反推真实 exe 目录。"""
+    if _is_packaged():
+        if sys.argv and sys.argv[0]:
+            argv0 = os.path.abspath(sys.argv[0])
+            if argv0.lower().endswith(".exe") and os.path.isfile(argv0):
+                return os.path.dirname(argv0)
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

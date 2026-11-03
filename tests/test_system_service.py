@@ -2,7 +2,9 @@
 Tests for SystemService — auto-start, shutdown, QQ window toggle.
 All registry operations are mocked; no real system changes occur.
 """
+import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch, MagicMock, PropertyMock
 
@@ -29,7 +31,8 @@ class FakeRegKey:
     def _query(self, name):
         if name not in self._values:
             raise FileNotFoundError(f"Value '{name}' not found")
-        return (1, self._values[name])
+        # winreg.QueryValueEx 返回 (value, value_type)
+        return (self._values[name], 1)
 
     def _close(self):
         self.closed = True
@@ -206,24 +209,76 @@ class TestIsRunOnStartup(unittest.TestCase):
 
 
 class TestGetStartupCommand(unittest.TestCase):
-    """Tests for _get_startup_command()（exe-only：直接用 sys.executable）。"""
+    """Tests for _get_startup_command()."""
 
     def setUp(self):
         from app.services.system_service import SystemService
         self.svc = SystemService()
 
-    def test_returns_exe_path(self):
-        """返回 exe 完整路径"""
-        with patch.object(sys, 'executable', r'C:\Program Files\MiniTools\MiniTools.exe'):
-            cmd = self.svc._get_startup_command()
-            self.assertEqual(cmd, '"C:\\Program Files\\MiniTools\\MiniTools.exe"')
+    def test_packaged_uses_real_exe_from_argv0(self):
+        """打包模式：sys.executable 是假的 python.exe，启动项必须写 argv[0] 的真实 exe"""
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = os.path.join(tmp, "MiniTools.exe")
+            open(exe, "wb").close()
+            with patch.object(sys, 'argv', [exe]), \
+                 patch.object(sys, 'frozen', True, create=True):
+                cmd = self.svc._get_startup_command()
+        self.assertEqual(cmd, f'"{os.path.abspath(exe)}"')
 
-    def test_startup_command_has_quotes(self):
-        """启动命令中的路径带引号"""
-        with patch.object(sys, 'executable', r'C:\My Tools\app.exe'):
-            cmd = self.svc._get_startup_command()
-        self.assertTrue(cmd.startswith('"'))
-        self.assertTrue(cmd.endswith('"'))
+    def test_source_mode_uses_pythonw_and_main_py(self):
+        """源码模式：写 pythonw + main.py，而不是裸 sys.executable"""
+        with tempfile.TemporaryDirectory() as tmp:
+            pythonw = os.path.join(tmp, "pythonw.exe")
+            open(pythonw, "wb").close()
+            with patch.object(sys, 'executable', os.path.join(tmp, "python.exe")):
+                cmd = self.svc._get_startup_command()
+        self.assertIn("pythonw.exe", cmd)
+        self.assertIn("main.py", cmd)
+
+
+class TestSyncRunOnStartup(unittest.TestCase):
+    """Tests for sync_run_on_startup()（修复失效的自启命令）。"""
+
+    def setUp(self):
+        from app.services.system_service import SystemService
+        self.svc = SystemService()
+
+    def test_repairs_stale_python_exe_entry(self):
+        """旧条目指向 python.exe：启动时校正为当前真实 exe"""
+        reg_key = FakeRegKey({"MiniTools": r'"C:\Python314\python.exe"'})
+        fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = os.path.join(tmp, "MiniTools.exe")
+            open(exe, "wb").close()
+            with patch.dict('sys.modules', winreg=fake_winreg), \
+                 patch.object(sys, 'argv', [exe]), \
+                 patch.object(sys, 'frozen', True, create=True):
+                self.svc.sync_run_on_startup()
+                self.assertEqual(reg_key._values["MiniTools"], f'"{os.path.abspath(exe)}"')
+
+    def test_keeps_correct_entry_untouched(self):
+        """命令已正确：不做任何注册表写入"""
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = os.path.join(tmp, "MiniTools.exe")
+            open(exe, "wb").close()
+            reg_key = FakeRegKey({"MiniTools": f'"{exe}"'})
+            fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
+
+            with patch.dict('sys.modules', winreg=fake_winreg), \
+                 patch.object(sys, 'argv', [exe]), \
+                 patch.object(sys, 'frozen', True, create=True):
+                self.svc.sync_run_on_startup()
+            self.assertEqual(reg_key._values["MiniTools"], f'"{exe}"')
+
+    def test_no_entry_does_nothing(self):
+        """未开启自启：不会悄悄添加自启项"""
+        reg_key = FakeRegKey()
+        fake_winreg = _make_fake_winreg({RUN_KEY: reg_key})
+
+        with patch.dict('sys.modules', winreg=fake_winreg):
+            self.svc.sync_run_on_startup()
+        self.assertEqual(reg_key._values, {})
 
 
 class TestFullEnableDisableCycle(unittest.TestCase):

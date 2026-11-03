@@ -11,6 +11,7 @@ import requests
 import threading
 from urllib.parse import quote
 
+from app.config.constants import get_exe_path
 from app.utils.version import is_newer_version
 from app.utils.logger import logger
 
@@ -431,15 +432,7 @@ del "%~f0"
             return False, error
 
     def get_local_exe_path(self):
-        """获取当前运行的 exe 路径（更新替换目标）。
-
-        Nuitka standalone 打包后 sys.executable 指向 exe 目录下一个并不存在的
-        python.exe，只有 sys.argv[0] 是真实 exe；源码运行时 argv[0] 是 .py 文件，
-        此时退回 sys.executable。
-        """
-        argv0 = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
-        if argv0.lower().endswith(".exe") and os.path.isfile(argv0):
-            return argv0
-        return sys.executable
+        """获取当前运行的 exe 路径（更新替换目标）。"""
+        return get_exe_path()
 
 update_service = UpdateService()

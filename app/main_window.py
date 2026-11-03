@@ -87,6 +87,7 @@ class MainWindow(QWidget):
         self._setup_timers()
         self._setup_keyboard_hook()
         self._sync_input_feedback()
+        system_service.sync_run_on_startup()
         self._schedule_auto_update_check()
         logger.info("MainWindow initialization complete")
 

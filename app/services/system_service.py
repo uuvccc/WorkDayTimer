@@ -1,37 +1,66 @@
 import os
 import sys
+from app.config.constants import BASE_DIR, get_exe_path, is_packaged
 from app.utils.logger import logger
 
 
 class SystemService:
     APP_NAME = "MiniTools"
+    # 新旧两种可能的启动项名称
+    STARTUP_NAMES = ("MiniTools", "WorkDayTimer")
+
+    def _read_startup_entry(self):
+        """读取启动项，返回 (值名, 命令)；未设置时返回 (None, None)"""
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_READ,
+        )
+        try:
+            for name in self.STARTUP_NAMES:
+                try:
+                    command, _ = winreg.QueryValueEx(key, name)
+                    return name, command
+                except FileNotFoundError:
+                    continue
+            return None, None
+        finally:
+            winreg.CloseKey(key)
 
     def is_run_on_startup(self):
         """Check if the application is set to run on startup"""
         try:
-            import winreg
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run",
-                0,
-                winreg.KEY_READ,
-            )
-            try:
-                # 检查新旧两种可能的启动项名称
-                for name in (self.APP_NAME, "WorkDayTimer"):
-                    try:
-                        winreg.QueryValueEx(key, name)
-                        logger.debug(f"Startup registry entry found: {name}")
-                        return True
-                    except FileNotFoundError:
-                        continue
-                logger.debug("No startup registry entry found")
-                return False
-            finally:
-                winreg.CloseKey(key)
+            name, _ = self._read_startup_entry()
+            if name:
+                logger.debug(f"Startup registry entry found: {name}")
+                return True
+            logger.debug("No startup registry entry found")
+            return False
         except Exception as e:
             logger.warning(f"Failed to read startup registry: {e}")
             return False
+
+    def sync_run_on_startup(self):
+        """已开启自启时，把注册表命令校正为当前 exe 路径。
+
+        exe 移动目录或旧版本写入了错误路径（如 Nuitka 打包后的 python.exe）
+        时，自启会静默失效，这里在启动时自愈。"""
+        try:
+            name, command = self._read_startup_entry()
+            if not name:
+                return
+            expected = self._get_startup_command()
+            if command and command.strip().lower() == expected.lower() and name == self.APP_NAME:
+                return
+            ok, msg = self.toggle_run_on_startup(True)
+            if ok:
+                logger.info(f"Repaired startup command: {command} -> {expected}")
+            else:
+                logger.warning(f"Failed to repair startup command: {msg}")
+        except Exception as e:
+            logger.warning(f"Failed to sync startup entry: {e}")
 
     def toggle_run_on_startup(self, is_enabled):
         """Toggle run on startup setting"""
@@ -55,7 +84,7 @@ class SystemService:
                     logger.info(f"Added to startup: {startup_cmd}")
                     return True, "Application has been added to startup."
                 else:
-                    for name in (self.APP_NAME, "WorkDayTimer"):
+                    for name in self.STARTUP_NAMES:
                         try:
                             winreg.DeleteValue(key, name)
                             logger.info(f"Removed from startup: {name}")
@@ -103,7 +132,16 @@ class SystemService:
             return False, f"Shutdown failed: {e}"
 
     def _get_startup_command(self):
-        """生成写入注册表 Run 键的启动命令行（exe 完整路径，带引号）"""
+        """生成写入注册表 Run 键的启动命令行。
+
+        打包模式写 exe 完整路径；源码运行写 pythonw + main.py
+        （直接写 sys.executable 会变成裸 python.exe，登录时自启无效）。"""
+        if is_packaged():
+            return f'"{get_exe_path()}"'
+        pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+        main_py = os.path.join(BASE_DIR, "main.py")
+        if os.path.isfile(pythonw) and os.path.isfile(main_py):
+            return f'"{pythonw}" "{main_py}"'
         return f'"{sys.executable}"'
 
 
